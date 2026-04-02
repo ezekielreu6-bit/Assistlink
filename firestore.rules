@@ -7,48 +7,25 @@ service cloud.firestore {
      * 
      * Core Philosophy:
      * This ruleset implements an Organization-Based Multi-tenancy model. Access is strictly 
-     * partitioned by `organizationId`. A user's access to any resource is determined by their 
-     * affiliation with an organization, which is stored in their central User profile.
-     * 
-     * Data Structure:
-     * - /users/{userId}: Root profiles linked to Supabase/Firebase Auth UIDs.
-     * - /organizations/{organizationId}: Top-level containers for organizational data.
-     * - All business entities (Sessions, Messages, Widgets) are nested under organizations
-     *   or contain denormalized `organizationId` fields for rapid authorization.
-     * 
-     * Key Security Decisions:
-     * 1. Authorization Independence: We rely on denormalized `organizationId` fields within 
-     *    documents to perform access checks without traversing complex tree hierarchies.
-     * 2. User-to-Org Mapping: Every authenticated request (except for initial user creation) 
-     *    performs a look-up on the `/users/{userId}` collection to verify the user's 
-     *    current organization membership.
-     * 3. Prototyping Flexibility: While authorization (WHO can access) is strictly enforced, 
-     *    the internal shape of data (WHAT is inside) is left flexible to allow for 
-     *    rapid UI and feature iteration.
-     * 4. Anonymous Support: Allows for anonymous customer interactions through chat widgets 
-     *    while ensuring agents still have secure administrative control.
+     * partitioned by `organizationId`. User profiles are keyed by email address as requested.
      */
 
     // --- Helper Functions ---
 
     /** @description Checks if the request is from an authenticated user. */
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.email != null;
     }
 
-    /** @description Checks if the user's UID matches the provided userId. */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /** @description Checks ownership for existing documents during update/delete. */
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
+    /** @description Checks if the user's email matches the provided userEmail. */
+    function isOwner(userEmail) {
+      return isSignedIn() && request.auth.token.email == userEmail;
     }
 
     /** @description Retrieves the user's profile data for organization verification. */
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      // Profiles are keyed by email address
+      return get(/databases/$(database)/documents/users/$(request.auth.token.email)).data;
     }
 
     /** @description Verifies if the authenticated user belongs to a specific organization. */
@@ -64,132 +41,71 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     /**
-     * @description Rules for the User profiles. Users can manage their own profile.
-     * @path /users/{userId}
-     * @allow (get, create) if request.auth.uid == userId
-     * @deny (list) if request.auth.uid != userId
-     * @principle Ownership-based access for identity management.
+     * @description Rules for the User profiles. 
+     * Profiles are keyed by email. Members can see others in the same org.
      */
-    match /users/{userId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update, delete: if isExistingOwner(userId);
+    match /users/{userEmail} {
+      allow get: if isOwner(userEmail) || isOrgMember(resource.data.organizationId);
+      
+      // Allow listing users if filtering by your own organizationId
+      allow list: if isSignedIn() && (
+        isOwner(userEmail) || 
+        getUserData().organizationId == resource.data.organizationId
+      );
 
-      /**
-       * @description Personal notification settings for a specific user.
-       * @path /users/{userId}/emailNotificationSettings/{settingId}
-       * @allow (update) if userId matches auth.uid
-       * @deny (create) if userId does not match auth.uid
-       * @principle Sub-resource ownership derived from parent path.
-       */
+      allow create: if isOwner(userEmail);
+      allow update: if isOwner(userEmail) || isOrgAdmin(resource.data.organizationId);
+      allow delete: if isOrgAdmin(resource.data.organizationId);
+
       match /emailNotificationSettings/{settingId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && request.resource.data.userId == userId;
-        allow update, delete: if isExistingOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userEmail);
       }
     }
 
     /**
      * @description Top-level organization document. Access restricted to members.
-     * @path /organizations/{organizationId}
-     * @allow (get) if user belongs to the organization.
-     * @deny (delete) for non-admin members.
-     * @principle Multi-tenant partitioning by Org ID.
      */
     match /organizations/{organizationId} {
       allow get, list: if isOrgMember(organizationId);
-      allow create: if isSignedIn(); // Allow initial creation by any signed-in user
+      allow create: if isSignedIn();
       allow update: if isOrgMember(organizationId);
       allow delete: if isOrgAdmin(organizationId);
 
-      /**
-       * @description Settings for chat widgets. Admin-level configuration.
-       * @path /organizations/{organizationId}/chatWidgetConfigurations/{widgetId}
-       * @allow (get) for all members to render the widget.
-       * @deny (update) for non-members.
-       * @principle Organizational scoping with relational integrity check.
-       */
       match /chatWidgetConfigurations/{widgetId} {
         allow get, list: if isOrgMember(organizationId);
-        allow create: if isOrgMember(organizationId) && request.resource.data.organizationId == organizationId;
-        allow update, delete: if isOrgMember(organizationId) && resource != null;
+        allow create, update, delete: if isOrgMember(organizationId);
       }
 
-      /**
-       * @description Customer records interacting with the organization.
-       * @path /organizations/{organizationId}/customers/{customerId}
-       * @allow (create) for anonymous users (the customers).
-       * @deny (list) for anonymous users.
-       * @principle Dual-access pattern: Public creation, Member-only management.
-       */
       match /customers/{customerId} {
-        allow get: if isOrgMember(organizationId) || request.auth.uid == customerId;
-        allow list: if isOrgMember(organizationId);
-        allow create: if (isOrgMember(organizationId) || isSignedIn()) && request.resource.data.organizationId == organizationId;
-        allow update, delete: if isOrgMember(organizationId) && resource != null;
+        allow get, list: if isOrgMember(organizationId);
+        allow create: if isSignedIn() && request.resource.data.organizationId == organizationId;
+        allow update, delete: if isOrgMember(organizationId);
       }
 
-      /**
-       * @description Chat session management between agents and customers.
-       * @path /organizations/{organizationId}/chatSessions/{sessionId}
-       * @allow (update) for agents to assign themselves or change status.
-       * @deny (get) for users from different organizations.
-       * @principle Access based on organizational membership and relational IDs.
-       */
       match /chatSessions/{sessionId} {
         allow get, list: if isOrgMember(organizationId);
-        allow create: if (isOrgMember(organizationId) || isSignedIn()) && request.resource.data.organizationId == organizationId;
-        allow update, delete: if isOrgMember(organizationId) && resource != null;
+        allow create: if isSignedIn() && request.resource.data.organizationId == organizationId;
+        allow update, delete: if isOrgMember(organizationId);
 
-        /**
-         * @description Individual messages within a session.
-         * @path /organizations/{organizationId}/chatSessions/{sessionId}/chatMessages/{messageId}
-         * @allow (create) if the sender is part of the session's organization.
-         * @deny (list) if the user is not a member.
-         * @principle Deeply nested relational integrity and denormalized org checks.
-         */
         match /chatMessages/{messageId} {
           allow get, list: if isOrgMember(organizationId);
-          allow create: if (isOrgMember(organizationId) || isSignedIn()) && request.resource.data.organizationId == organizationId;
-          allow update, delete: if isOrgMember(organizationId) && resource != null;
+          allow create: if isSignedIn() && request.resource.data.organizationId == organizationId;
+          allow update, delete: if isOrgMember(organizationId);
         }
       }
 
-      /**
-       * @description Predefined replies for agents in a specific organization.
-       * @path /organizations/{organizationId}/agentSmartReplies/{replyId}
-       * @allow (get, list) for all org agents.
-       * @principle Internal resource sharing within a tenant.
-       */
       match /agentSmartReplies/{replyId} {
-        allow get, list: if isOrgMember(organizationId);
-        allow create: if isOrgMember(organizationId) && request.resource.data.organizationId == organizationId;
-        allow update, delete: if isOrgMember(organizationId) && resource != null;
+        allow get, list, create, update, delete: if isOrgMember(organizationId);
       }
 
-      /**
-       * @description Org-wide notification settings.
-       * @path /organizations/{organizationId}/emailNotificationSettings/{settingId}
-       * @allow (get) for members to see where notifications go.
-       * @principle Configuration scoping by organization.
-       */
       match /emailNotificationSettings/{settingId} {
-        allow get, list: if isOrgMember(organizationId);
-        allow create: if isOrgMember(organizationId) && request.resource.data.organizationId == organizationId;
-        allow update, delete: if isOrgMember(organizationId) && resource != null;
+        allow get, list, create, update, delete: if isOrgMember(organizationId);
       }
     }
 
-    /**
-     * @description Global replies available to all agents across the platform.
-     * @path /globalAgentSmartReplies/{replyId}
-     * @allow (get, list) for any signed-in agent.
-     * @deny (write) for standard users (System Admin only).
-     * @principle Read-only global resource pattern.
-     */
     match /globalAgentSmartReplies/{replyId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if false; // System-level data
+      allow create, update, delete: if false;
     }
   }
 }

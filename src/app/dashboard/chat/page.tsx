@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -69,7 +68,8 @@ export default function ChatPage() {
 
     const messageData = {
       chatSessionId: selectedSessionId,
-      senderId: user.uid,
+      // Use email as senderId for consistency with profile IDs
+      senderId: user.email || user.uid,
       senderType: 'agent',
       content,
       timestamp: serverTimestamp(),

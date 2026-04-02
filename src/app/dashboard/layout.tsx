@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useEffect } from 'react'
@@ -50,14 +49,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, isMobile, setOpenMobile])
 
-  const userRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user])
+  // Use email as the document ID for user profiles as requested
+  const userRef = useMemoFirebase(() => user?.email ? doc(db, 'users', user.email) : null, [db, user])
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef)
 
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push('/login')
-    } else if (user && !isProfileLoading && !userProfile && db) {
-      setDoc(doc(db, 'users', user.uid), {
+    } else if (user && user.email && !isProfileLoading && !userProfile && db) {
+      // Ensure user profile exists, keyed by email
+      setDoc(doc(db, 'users', user.email), {
         id: user.uid,
         email: user.email,
         role: 'admin',
@@ -66,6 +67,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp(),
       }, { merge: true })
       
+      // Ensure default organization exists
       setDoc(doc(db, 'organizations', 'default-org'), {
         id: 'default-org',
         name: 'My Organization',
