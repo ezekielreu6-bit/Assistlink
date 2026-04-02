@@ -1,8 +1,10 @@
+
 "use client"
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Image from 'next/image'
+import { usePathname, useRouter } from 'next/navigation'
 import { 
   MessageSquare, 
   Settings, 
@@ -18,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { useUser, useAuth } from '@/firebase'
 import {
   Sidebar,
   SidebarContent,
@@ -30,9 +33,24 @@ import {
   SidebarTrigger,
   SidebarInset
 } from '@/components/ui/sidebar'
+import { signOut } from 'firebase/auth'
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { user, isUserLoading } = useUser()
+  const auth = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login')
+    }
+  }, [user, isUserLoading, router])
+
+  const handleSignOut = async () => {
+    await signOut(auth)
+    router.push('/')
+  }
 
   const navItems = [
     { name: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
@@ -42,13 +60,24 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { name: 'Settings', icon: Settings, href: '/dashboard/settings' },
   ]
 
+  if (isUserLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <Image src="/logo.png" alt="Loading" width={60} height={60} />
+          <p className="text-sm font-medium text-muted-foreground">Securing your session...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
         <Sidebar className="border-r border-border">
           <SidebarHeader className="p-6">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xl group-hover:rotate-12 transition-transform">A</div>
+              <Image src="/logo.png" alt="AssistLink" width={32} height={32} className="rounded-lg group-hover:rotate-12 transition-transform" />
               <span className="font-bold text-xl text-foreground">AssistLink</span>
             </Link>
           </SidebarHeader>
@@ -81,7 +110,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <p className="text-[10px] text-muted-foreground leading-relaxed">Remove branding and get advanced AI features.</p>
               <Button size="sm" className="w-full mt-3 h-8 text-[10px] font-bold tracking-tight">UPGRADE</Button>
             </div>
-            <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={handleSignOut}
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </Button>
@@ -109,12 +142,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <div className="h-8 w-px bg-border mx-1" />
               <div className="flex items-center gap-3 pl-2">
                 <div className="hidden lg:block text-right">
-                  <p className="text-sm font-semibold">Alex Carter</p>
-                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Senior Agent</p>
+                  <p className="text-sm font-semibold">{user?.displayName || user?.email?.split('@')[0] || 'Agent'}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Support Agent</p>
                 </div>
                 <Avatar className="h-10 w-10 border-2 border-primary/10 cursor-pointer hover:border-primary transition-colors">
-                  <AvatarImage src="https://picsum.photos/seed/agent-alex/80/80" />
-                  <AvatarFallback>AC</AvatarFallback>
+                  <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/80/80`} />
+                  <AvatarFallback>{user?.email?.charAt(0).toUpperCase() || 'A'}</AvatarFallback>
                 </Avatar>
               </div>
             </div>

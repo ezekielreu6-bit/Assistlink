@@ -1,3 +1,6 @@
+
+"use client"
+
 import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -16,6 +19,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 export default function LandingPage() {
   return (
@@ -24,7 +28,7 @@ export default function LandingPage() {
       <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-border/50">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-[#3333CC] flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-primary/20">A</div>
+            <Image src="/logo.png" alt="AssistLink Logo" width={40} height={40} className="rounded-xl shadow-lg shadow-primary/20" />
             <span className="font-bold text-2xl tracking-tight text-[#3333CC]">AssistLink</span>
           </Link>
           
@@ -32,8 +36,12 @@ export default function LandingPage() {
             <Link href="#features" className="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Features</Link>
             <Link href="#how-it-works" className="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">How it works</Link>
             <Link href="#pricing" className="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">Pricing</Link>
-            <Link href="/dashboard" className="text-sm font-semibold text-primary px-6 py-2 rounded-full border border-primary/20 hover:bg-primary/5 transition-all">Agent Login</Link>
-            <Button className="bg-primary hover:bg-primary/90 text-white rounded-full px-8 shadow-xl shadow-primary/20">Get Started Free</Button>
+            <Button variant="ghost" className="text-sm font-semibold text-primary px-6 py-2 rounded-full border border-primary/20 hover:bg-primary/5 transition-all" asChild>
+              <Link href="/login">Agent Login</Link>
+            </Button>
+            <Button className="bg-primary hover:bg-primary/90 text-white rounded-full px-8 shadow-xl shadow-primary/20" asChild>
+              <Link href="/login">Get Started Free</Link>
+            </Button>
           </nav>
 
           <Button variant="ghost" size="icon" className="md:hidden">
@@ -63,9 +71,11 @@ export default function LandingPage() {
                 Connect with your customers instantly. AssistLink provides a beautiful, customizable chat widget with AI-driven agent suggestions to boost productivity.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                <Button size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full h-14 px-10 text-lg shadow-2xl shadow-primary/30 group">
-                  Start for free
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                <Button size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full h-14 px-10 text-lg shadow-2xl shadow-primary/30 group" asChild>
+                  <Link href="/login">
+                    Start for free
+                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </Button>
                 <Button variant="outline" size="lg" className="bg-white/50 backdrop-blur rounded-full h-14 px-10 text-lg border-border hover:bg-white">
                   Watch demo
@@ -167,8 +177,8 @@ export default function LandingPage() {
                   Join 2,000+ businesses using AssistLink to provide world-class support. No credit card required.
                 </p>
                 <div className="pt-6">
-                  <Button size="lg" className="bg-white text-primary hover:bg-white/90 rounded-full h-16 px-12 text-xl font-bold shadow-xl">
-                    Get Started Free
+                  <Button size="lg" className="bg-white text-primary hover:bg-white/90 rounded-full h-16 px-12 text-xl font-bold shadow-xl" asChild>
+                    <Link href="/login">Get Started Free</Link>
                   </Button>
                 </div>
                 <div className="flex items-center justify-center gap-8 pt-8 text-sm text-white/60">
@@ -187,7 +197,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1 space-y-6">
               <Link href="/" className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-lg">A</div>
+                <Image src="/logo.png" alt="AssistLink" width={32} height={32} />
                 <span className="font-bold text-xl tracking-tight text-primary">AssistLink</span>
               </Link>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -233,8 +243,4 @@ export default function LandingPage() {
       </footer>
     </div>
   )
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ')
 }
