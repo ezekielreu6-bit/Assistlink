@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-bg",
+      "description": "Modern office space with team collaborating on software",
+      "imageUrl": "https://picsum.photos/seed/assist1/1200/800",
+      "imageHint": "modern office collaboration"
+    },
+    {
+      "id": "feature-dashboard",
+      "description": "Software dashboard interface showing analytics",
+      "imageUrl": "https://picsum.photos/seed/assist2/800/600",
+      "imageHint": "software dashboard"
+    },
+    {
+      "id": "agent-avatar",
+      "description": "Professional support agent avatar",
+      "imageUrl": "https://picsum.photos/seed/assist3/100/100",
+      "imageHint": "support person"
+    }
+  ]
 }
