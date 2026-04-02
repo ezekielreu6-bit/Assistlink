@@ -49,7 +49,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, isMobile, setOpenMobile])
 
-  // Use email as the document ID for user profiles as requested
+  // Key data by email address as requested
   const userRef = useMemoFirebase(() => user?.email ? doc(db, 'users', user.email) : null, [db, user])
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef)
 
@@ -57,20 +57,22 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (!isUserLoading && !user) {
       router.push('/login')
     } else if (user && user.email && !isProfileLoading && !userProfile && db) {
+      const orgId = user.email.replace(/\./g, '_')
+      
       // Ensure user profile exists, keyed by email
       setDoc(doc(db, 'users', user.email), {
         id: user.uid,
         email: user.email,
         role: 'admin',
-        organizationId: 'default-org',
+        organizationId: orgId,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }, { merge: true })
       
-      // Ensure default organization exists
-      setDoc(doc(db, 'organizations', 'default-org'), {
-        id: 'default-org',
-        name: 'My Organization',
+      // Ensure personalized organization exists
+      setDoc(doc(db, 'organizations', orgId), {
+        id: orgId,
+        name: `${user.email.split('@')[0]}'s Team`,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }, { merge: true })

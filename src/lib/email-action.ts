@@ -2,7 +2,7 @@
 
 import nodemailer from 'nodemailer';
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://assistlink.vercel.app';
 const logoUrl = `${appUrl}/logo.png`;
 
 /**

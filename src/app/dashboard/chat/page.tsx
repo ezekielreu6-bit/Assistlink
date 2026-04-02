@@ -1,9 +1,9 @@
-
 "use client"
 
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import React, { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Card } from '@/components/ui/card'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -12,15 +12,12 @@ import { SmartReplies } from '@/components/smart-replies'
 import { 
   Search, 
   Send, 
-  MoreHorizontal, 
   Phone, 
   Video, 
   User, 
   Clock, 
   Paperclip,
-  Smile,
   CheckCircle,
-  Archive,
   Loader2,
   MessageSquare,
   CheckCircle2
@@ -31,36 +28,47 @@ import { collection, query, orderBy, doc, addDoc, serverTimestamp, updateDoc } f
 import { formatDistanceToNow } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
 
-export default function ChatPage() {
+function ChatContent() {
   const { user } = useUser()
   const db = useFirestore()
   const { toast } = useToast()
+  const searchParams = useSearchParams()
+  const querySessionId = searchParams.get('session')
+  
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
+
+  const orgId = user?.email ? user.email.replace(/\./g, '_') : 'default-org'
+
+  useEffect(() => {
+    if (querySessionId) {
+      setSelectedSessionId(querySessionId)
+    }
+  }, [querySessionId])
 
   const sessionsQuery = useMemoFirebase(() => {
     if (!db) return null
     return query(
-      collection(db, 'organizations', 'default-org', 'chatSessions'),
+      collection(db, 'organizations', orgId, 'chatSessions'),
       orderBy('updatedAt', 'desc')
     )
-  }, [db])
+  }, [db, orgId])
 
   const { data: sessions, isLoading: sessionsLoading } = useCollection(sessionsQuery)
 
   const messagesQuery = useMemoFirebase(() => {
     if (!db || !selectedSessionId) return null
     return query(
-      collection(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId, 'chatMessages'),
+      collection(db, 'organizations', orgId, 'chatSessions', selectedSessionId, 'chatMessages'),
       orderBy('timestamp', 'asc')
     )
-  }, [db, selectedSessionId])
+  }, [db, selectedSessionId, orgId])
 
   const { data: messages } = useCollection(messagesQuery)
 
   const sessionRef = useMemoFirebase(() => 
-    (db && selectedSessionId) ? doc(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId) : null,
-    [db, selectedSessionId]
+    (db && selectedSessionId) ? doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId) : null,
+    [db, selectedSessionId, orgId]
   )
   const { data: activeSession } = useDoc(sessionRef)
 
@@ -76,12 +84,12 @@ export default function ChatPage() {
       senderType: 'agent',
       content,
       timestamp: serverTimestamp(),
-      organizationId: 'default-org'
+      organizationId: orgId
     }
 
-    addDoc(collection(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId, 'chatMessages'), messageData)
+    addDoc(collection(db, 'organizations', orgId, 'chatSessions', selectedSessionId, 'chatMessages'), messageData)
 
-    updateDoc(doc(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId), {
+    updateDoc(doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId), {
       updatedAt: serverTimestamp(),
       lastMessage: content
     })
@@ -90,7 +98,7 @@ export default function ChatPage() {
   const handleResolveSession = async () => {
     if (!selectedSessionId || !db) return;
     
-    updateDoc(doc(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId), {
+    updateDoc(doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId), {
       status: 'resolved',
       updatedAt: serverTimestamp()
     });
@@ -153,6 +161,11 @@ export default function ChatPage() {
               </div>
             </button>
           ))}
+          {(!sessions || sessions.length === 0) && !sessionsLoading && (
+            <div className="p-8 text-center text-muted-foreground text-xs italic">
+              No active conversations.
+            </div>
+          )}
         </ScrollArea>
       </Card>
 
@@ -276,5 +289,17 @@ export default function ChatPage() {
         </Card>
       )}
     </div>
+  )
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    }>
+      <ChatContent />
+    </Suspense>
   )
 }

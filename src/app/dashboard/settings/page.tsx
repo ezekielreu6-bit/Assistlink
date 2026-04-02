@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react'
@@ -9,17 +8,22 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { ChatPreview } from '@/components/chat-preview'
-import { Wand2, Copy, Check, Loader2, Palette, Terminal, Globe } from 'lucide-react'
+import { Wand2, Copy, Check, Loader2, Palette, Terminal, Globe, Link as LinkIcon } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { extractWebsiteColors } from '@/ai/flows/website-color-extractor-flow'
+import { useUser } from '@/firebase'
 
 export default function SettingsPage() {
+  const { user } = useUser()
   const [primaryColor, setPrimaryColor] = useState('#3333CC')
   const [accentColor, setAccentColor] = useState('#1FBAF5')
   const [websiteUrl, setWebsiteUrl] = useState('https://assistlink.vercel.app')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
+
+  const orgId = user?.email ? user.email.replace(/\./g, '_') : 'AL-USER-1'
+  const endpointUrl = `https://assistlink.vercel.app/api/widget?id=${orgId}`
 
   const handleAiExtract = async () => {
     if (!websiteUrl) {
@@ -28,8 +32,6 @@ export default function SettingsPage() {
     }
     setLoading(true)
     try {
-      // For this prototype, we simulate a screenshot by fetching a related image 
-      // and passing it to the real Genkit extraction flow.
       const response = await fetch(`https://picsum.photos/seed/${encodeURIComponent(websiteUrl)}/1200/800`);
       const blob = await response.blob();
       const reader = new FileReader();
@@ -58,10 +60,11 @@ export default function SettingsPage() {
     }
   }
 
-  const embedCode = `<script src="https://cdn.assistlink.com/v1/widget.js"></script>
+  const embedCode = `<!-- AssistLink Widget Installation -->
+<script src="${endpointUrl}"></script>
 <script>
   AssistLink.init({
-    token: "AL-7732-XJ99",
+    orgId: "${orgId}",
     primaryColor: "${primaryColor}",
     accentColor: "${accentColor}"
   });
@@ -77,23 +80,69 @@ export default function SettingsPage() {
   return (
     <div className="space-y-8 max-w-6xl mx-auto animate-in fade-in duration-500">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Widget Customization</h1>
-        <p className="text-muted-foreground mt-1">Design your chat widget to match your brand identity.</p>
+        <h1 className="text-3xl font-bold tracking-tight">Widget Configuration</h1>
+        <p className="text-muted-foreground mt-1">Manage your widget endpoint and visual styling.</p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-12 items-start">
         <div className="lg:col-span-7 space-y-6">
-          <Tabs defaultValue="design" className="w-full">
+          <Tabs defaultValue="installation" className="w-full">
             <TabsList className="bg-muted/50 p-1 rounded-xl mb-4">
-              <TabsTrigger value="design" className="rounded-lg px-6">
-                <Palette className="w-4 h-4 mr-2" />
-                Design
-              </TabsTrigger>
               <TabsTrigger value="installation" className="rounded-lg px-6">
                 <Terminal className="w-4 h-4 mr-2" />
                 Installation
               </TabsTrigger>
+              <TabsTrigger value="design" className="rounded-lg px-6">
+                <Palette className="w-4 h-4 mr-2" />
+                Design
+              </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="installation" className="space-y-6">
+              <Card className="border-none shadow-sm rounded-2xl">
+                <CardHeader className="bg-primary/5 border-b border-primary/10">
+                  <div className="flex items-center gap-2">
+                    <LinkIcon className="w-5 h-5 text-primary" />
+                    <CardTitle className="text-lg">Endpoint URL</CardTitle>
+                  </div>
+                  <CardDescription>This is your unique real-time messaging endpoint.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="flex gap-2">
+                    <Input readOnly value={endpointUrl} className="font-mono text-xs bg-muted/20" />
+                    <Button variant="outline" size="icon" onClick={() => {
+                      navigator.clipboard.writeText(endpointUrl)
+                      toast({ title: "Endpoint Copied" })
+                    }}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="text-lg">Embed Code</CardTitle>
+                  <CardDescription>Copy and paste this code before the closing &lt;/body&gt; tag of your website.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="relative group">
+                    <pre className="p-6 bg-muted rounded-2xl overflow-x-auto text-xs font-mono leading-relaxed text-foreground/80 border border-border">
+                      {embedCode}
+                    </pre>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={copyEmbed}
+                      className="absolute top-4 right-4 bg-white/80 backdrop-blur opacity-0 group-hover:opacity-100 transition-all rounded-xl shadow-sm border-none"
+                    >
+                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      <span className="ml-2">{copied ? "Copied" : "Copy"}</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="design" className="space-y-6">
               <Card className="border-none shadow-sm overflow-hidden rounded-2xl">
@@ -102,7 +151,7 @@ export default function SettingsPage() {
                     <Wand2 className="w-5 h-5 text-primary" />
                     <CardTitle className="text-lg">AI Smart Theme</CardTitle>
                   </div>
-                  <CardDescription>Enter your website URL to automatically extract your brand colors using GenAI.</CardDescription>
+                  <CardDescription>Extract dominant colors from your website visual profile.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row gap-4">
@@ -129,7 +178,7 @@ export default function SettingsPage() {
 
               <Card className="border-none shadow-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="text-lg">Manual Configuration</CardTitle>
+                  <CardTitle className="text-lg">Appearance</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -169,31 +218,6 @@ export default function SettingsPage() {
                       placeholder="Hi! How can we help you today?" 
                       className="rounded-2xl min-h-[120px] bg-muted/20 border-none p-4"
                     />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="installation">
-              <Card className="border-none shadow-sm rounded-2xl">
-                <CardHeader>
-                  <CardTitle className="text-lg">Embed Code</CardTitle>
-                  <CardDescription>Copy and paste this code before the closing &lt;/body&gt; tag of your website.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="relative group">
-                    <pre className="p-6 bg-muted rounded-2xl overflow-x-auto text-xs font-mono leading-relaxed text-foreground/80 border border-border">
-                      {embedCode}
-                    </pre>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={copyEmbed}
-                      className="absolute top-4 right-4 bg-white/80 backdrop-blur opacity-0 group-hover:opacity-100 transition-all rounded-xl shadow-sm border-none"
-                    >
-                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      <span className="ml-2">{copied ? "Copied" : "Copy"}</span>
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
