@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useEffect } from 'react'
@@ -13,7 +12,8 @@ import {
   LayoutDashboard,
   LogOut,
   Bell,
-  Search
+  Search,
+  UserGroup
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -59,21 +59,20 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (!isUserLoading && !user) {
       router.push('/login')
     } else if (user && !isProfileLoading && !userProfile) {
-      // Create default profile if missing (e.g. first login)
-      // This helps satisfy the organization-based multi-tenancy rules
       setDoc(doc(db, 'users', user.uid), {
         id: user.uid,
         email: user.email,
         role: 'admin',
-        organizationId: 'default-org', // In a real app, you'd prompt for org name
+        organizationId: 'default-org',
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       }, { merge: true })
       
-      // Also ensure org exists
       setDoc(doc(db, 'organizations', 'default-org'), {
         id: 'default-org',
         name: 'My Organization',
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       }, { merge: true })
     }
   }, [user, isUserLoading, router, userProfile, isProfileLoading, db])
@@ -87,6 +86,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     { name: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
     { name: 'Chats', icon: MessageSquare, href: '/dashboard/chat' },
     { name: 'Customers', icon: Users, href: '/dashboard/customers' },
+    { name: 'Team', icon: Users, href: '/dashboard/team' },
     { name: 'Analytics', icon: BarChart3, href: '/dashboard/analytics' },
     { name: 'Settings', icon: Settings, href: '/dashboard/settings' },
   ]
