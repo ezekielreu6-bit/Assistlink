@@ -11,8 +11,6 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  LineChart,
-  Line,
   AreaChart,
   Area
 } from 'recharts'
@@ -24,6 +22,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const performanceData = [
   { name: 'Mon', tickets: 40, response: 2.4 },
@@ -116,8 +115,4 @@ export default function AnalyticsPage() {
       </div>
     </div>
   )
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ')
 }

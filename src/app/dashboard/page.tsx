@@ -8,22 +8,20 @@ import {
   CheckCircle2, 
   Clock, 
   ThumbsUp, 
-  ArrowUpRight,
   UserPlus,
   Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import Link from 'next/link'
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase'
 import { collection, query, limit, orderBy } from 'firebase/firestore'
 import { formatDistanceToNow } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 export default function DashboardOverview() {
-  const { user } = useUser()
   const db = useFirestore()
 
-  // Real-time stats queries
   const sessionsQuery = useMemoFirebase(() => query(collection(db, 'organizations', 'default-org', 'chatSessions')), [db])
   const { data: allSessions } = useCollection(sessionsQuery)
 
@@ -147,8 +145,4 @@ export default function DashboardOverview() {
       </div>
     </div>
   )
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ')
 }
