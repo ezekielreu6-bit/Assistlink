@@ -14,6 +14,7 @@ import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebas
 import { collection, query, where, addDoc, serverTimestamp } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 export default function TeamPage() {
   const { user } = useUser()
