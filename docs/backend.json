@@ -1,0 +1,581 @@
+{
+  "entities": {
+    "Organization": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Organization",
+      "type": "object",
+      "description": "Represents a client company or brand that utilizes the AssistLink platform, managing its chat widgets, agents, and customer interactions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Organization entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the organization or company."
+        },
+        "websiteUrl": {
+          "type": "string",
+          "description": "The primary website URL for the organization, used for AI-powered color extraction and branding.",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the organization record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the organization record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "createdAt"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a human user of the AssistLink platform, such as an agent or administrator, associated with a specific organization. This entity is linked to an external authentication system (e.g., Supabase).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity, typically provided by the authentication system."
+        },
+        "organizationId": {
+          "type": "string",
+          "description": "Reference to the Organization this user belongs to. (Relationship: Organization 1:N User)"
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for identification and communication.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the organization (e.g., 'admin', 'agent')."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "organizationId",
+        "email",
+        "role",
+        "createdAt"
+      ]
+    },
+    "ChatWidgetConfiguration": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChatWidgetConfiguration",
+      "type": "object",
+      "description": "Defines the visual and behavioral settings for a customizable chat widget deployed by an Organization on their website or application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ChatWidgetConfiguration entity."
+        },
+        "organizationId": {
+          "type": "string",
+          "description": "Reference to the Organization that owns this chat widget configuration. (Relationship: Organization 1:N ChatWidgetConfiguration)"
+        },
+        "name": {
+          "type": "string",
+          "description": "A descriptive name for this widget configuration (e.g., 'Main Website Chat', 'Support Page Widget')."
+        },
+        "primaryColor": {
+          "type": "string",
+          "description": "The primary color of the chat widget, typically in hex format (e.g., '#3333CC')."
+        },
+        "backgroundColor": {
+          "type": "string",
+          "description": "The background color of the chat widget, typically in hex format (e.g., '#F0F0F4')."
+        },
+        "accentColor": {
+          "type": "string",
+          "description": "The accent color for interactive elements and highlights, typically in hex format (e.g., '#1FBAF5')."
+        },
+        "poweredByAssistLink": {
+          "type": "boolean",
+          "description": "Indicates whether the 'Powered by AssistLink' branding should be displayed on the widget (typically true for free tiers)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the widget configuration was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the widget configuration was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "organizationId",
+        "name",
+        "primaryColor",
+        "backgroundColor",
+        "accentColor",
+        "poweredByAssistLink",
+        "createdAt"
+      ]
+    },
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents an individual end-user who interacts with a chat widget. This entity captures basic information about the customer for a specific organization's interactions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Customer entity. This might be a session ID or a persistent ID if available."
+        },
+        "organizationId": {
+          "type": "string",
+          "description": "Reference to the Organization whose chat widget this customer interacted with. (Relationship: Organization 1:N Customer)"
+        },
+        "widgetConfigurationId": {
+          "type": "string",
+          "description": "Reference to the specific ChatWidgetConfiguration through which this customer initiated a chat. (Relationship: ChatWidgetConfiguration 1:N Customer)"
+        },
+        "externalId": {
+          "type": "string",
+          "description": "An optional identifier for the customer from the client's own system (e.g., CRM user ID)."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name provided by the customer during the chat interaction, if available."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address provided by the customer, if available.",
+          "format": "email"
+        },
+        "lastSeenAt": {
+          "type": "string",
+          "description": "Timestamp of the last known interaction or activity of the customer.",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the customer record was first created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "organizationId",
+        "createdAt"
+      ]
+    },
+    "ChatSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChatSession",
+      "type": "object",
+      "description": "Represents a single, continuous conversation instance between a customer and one or more support agents.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ChatSession entity."
+        },
+        "organizationId": {
+          "type": "string",
+          "description": "Reference to the Organization to which this chat session belongs. (Relationship: Organization 1:N ChatSession)"
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to the Customer participating in this chat session. (Relationship: Customer 1:N ChatSession)"
+        },
+        "widgetConfigurationId": {
+          "type": "string",
+          "description": "Reference to the ChatWidgetConfiguration through which this session was initiated. (Relationship: ChatWidgetConfiguration 1:N ChatSession)"
+        },
+        "agentId": {
+          "type": "string",
+          "description": "Reference to the User (agent) currently assigned to or last interacting with this session. Can be null if unassigned. (Relationship: User 1:N ChatSession)"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the chat session (e.g., 'open', 'pending', 'resolved', 'closed')."
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "Timestamp when the chat session began.",
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": "string",
+          "description": "Timestamp when the chat session was ended or resolved.",
+          "format": "date-time"
+        },
+        "resolutionNotes": {
+          "type": "string",
+          "description": "Optional notes provided by the agent regarding the resolution of the chat."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the chat session record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the chat session record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "organizationId",
+        "customerId",
+        "widgetConfigurationId",
+        "status",
+        "startedAt",
+        "createdAt"
+      ]
+    },
+    "ChatMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChatMessage",
+      "type": "object",
+      "description": "Represents an individual message exchanged within a specific chat session.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ChatMessage entity."
+        },
+        "chatSessionId": {
+          "type": "string",
+          "description": "Reference to the ChatSession this message belongs to. (Relationship: ChatSession 1:N ChatMessage)"
+        },
+        "senderId": {
+          "type": "string",
+          "description": "Identifier of the sender (either a UserId or CustomerId). Use with senderType to determine entity."
+        },
+        "senderType": {
+          "type": "string",
+          "description": "Specifies whether the sender is an 'agent' (User) or 'customer' (Customer)."
+        },
+        "content": {
+          "type": "string",
+          "description": "The actual text content of the message."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp when the message was sent.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "chatSessionId",
+        "senderId",
+        "senderType",
+        "content",
+        "timestamp"
+      ]
+    },
+    "AgentSmartReply": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AgentSmartReply",
+      "type": "object",
+      "description": "Stores predefined quick replies that agents can use during chat interactions to increase efficiency.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AgentSmartReply entity."
+        },
+        "organizationId": {
+          "type": "string",
+          "description": "Reference to the Organization that owns this smart reply. Can be null if it's a global reply. (Relationship: Organization 1:N AgentSmartReply)"
+        },
+        "title": {
+          "type": "string",
+          "description": "A short, descriptive title for the smart reply (e.g., 'Greeting', 'FAQ Shipping')."
+        },
+        "content": {
+          "type": "string",
+          "description": "The full text content of the smart reply."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the smart reply was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the smart reply was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "content",
+        "createdAt"
+      ]
+    },
+    "EmailNotificationSetting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "EmailNotificationSetting",
+      "type": "object",
+      "description": "Stores preferences for email notifications related to chat events for an organization or individual users.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the EmailNotificationSetting entity."
+        },
+        "organizationId": {
+          "type": "string",
+          "description": "Reference to the Organization for which these settings apply. (Relationship: Organization 1:N EmailNotificationSetting)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Optional reference to a specific User if these are personal notification settings. Overrides organization-wide settings. (Relationship: User 1:N EmailNotificationSetting)"
+        },
+        "notifyOnNewChat": {
+          "type": "boolean",
+          "description": "Boolean indicating whether to send an email notification for a new incoming chat."
+        },
+        "notifyOnAgentAssignment": {
+          "type": "boolean",
+          "description": "Boolean indicating whether to send an email notification when a chat is assigned to an agent."
+        },
+        "recipientEmail": {
+          "type": "string",
+          "description": "The email address where notifications should be sent, if different from the user's primary email.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the notification setting was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the notification setting was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "organizationId",
+        "notifyOnNewChat",
+        "notifyOnAgentAssignment",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/organizations/{organizationId}",
+        "definition": {
+          "entityName": "Organization",
+          "schema": {
+            "$ref": "#/backend/entities/Organization"
+          },
+          "description": "Top-level collection for client companies using the AssistLink platform. The `organizationId` parameter is central for all nested resource authorization."
+        }
+      },
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "User profiles for platform administrators and agents. Each document's ID (`userId`) corresponds to the Supabase authenticated user ID. Includes denormalized `organizationId` and `role` for authorization."
+        }
+      },
+      {
+        "path": "/organizations/{organizationId}/chatWidgetConfigurations/{widgetId}",
+        "definition": {
+          "entityName": "ChatWidgetConfiguration",
+          "schema": {
+            "$ref": "#/backend/entities/ChatWidgetConfiguration"
+          },
+          "description": "Customizable chat widget settings owned by a specific organization. Includes denormalized `organizationId` for authorization independence.",
+          "params": [
+            {
+              "name": "organizationId",
+              "description": "The unique identifier of the owning organization."
+            },
+            {
+              "name": "widgetId",
+              "description": "The unique identifier of the chat widget configuration."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/organizations/{organizationId}/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Records of individual end-users (customers) who interact with an organization's chat widgets. Includes denormalized `organizationId` for authorization independence.",
+          "params": [
+            {
+              "name": "organizationId",
+              "description": "The unique identifier of the organization the customer interacted with."
+            },
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the customer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/organizations/{organizationId}/chatSessions/{sessionId}",
+        "definition": {
+          "entityName": "ChatSession",
+          "schema": {
+            "$ref": "#/backend/entities/ChatSession"
+          },
+          "description": "Individual chat conversation instances. Includes denormalized `organizationId`, `customerId`, `widgetConfigurationId`, and `agentId` for comprehensive authorization independence.",
+          "params": [
+            {
+              "name": "organizationId",
+              "description": "The unique identifier of the organization to which the chat session belongs."
+            },
+            {
+              "name": "sessionId",
+              "description": "The unique identifier for the chat session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/organizations/{organizationId}/chatSessions/{sessionId}/chatMessages/{messageId}",
+        "definition": {
+          "entityName": "ChatMessage",
+          "schema": {
+            "$ref": "#/backend/entities/ChatMessage"
+          },
+          "description": "Individual messages within a chat session. CRITICAL: For Authorization Independence, each document MUST include denormalized `organizationId` and `customerId` (from the parent session) in addition to its existing fields (`chatSessionId`, `senderId`, `senderType`, etc.).",
+          "params": [
+            {
+              "name": "organizationId",
+              "description": "The unique identifier of the organization to which the chat session belongs."
+            },
+            {
+              "name": "sessionId",
+              "description": "The unique identifier of the parent chat session."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique identifier for the chat message."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/organizations/{organizationId}/agentSmartReplies/{replyId}",
+        "definition": {
+          "entityName": "AgentSmartReply",
+          "schema": {
+            "$ref": "#/backend/entities/AgentSmartReply"
+          },
+          "description": "Predefined quick replies available to agents within a specific organization. Includes denormalized `organizationId` for authorization independence.",
+          "params": [
+            {
+              "name": "organizationId",
+              "description": "The unique identifier of the organization that owns this smart reply."
+            },
+            {
+              "name": "replyId",
+              "description": "The unique identifier for the agent smart reply."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/globalAgentSmartReplies/{replyId}",
+        "definition": {
+          "entityName": "AgentSmartReply",
+          "schema": {
+            "$ref": "#/backend/entities/AgentSmartReply"
+          },
+          "description": "Predefined quick replies universally available to all agents, not scoped to a specific organization. Access controlled by general user roles.",
+          "params": [
+            {
+              "name": "replyId",
+              "description": "The unique identifier for the global agent smart reply."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/organizations/{organizationId}/emailNotificationSettings/{settingId}",
+        "definition": {
+          "entityName": "EmailNotificationSetting",
+          "schema": {
+            "$ref": "#/backend/entities/EmailNotificationSetting"
+          },
+          "description": "Organization-wide email notification preferences. Includes denormalized `organizationId` for authorization independence. If `userId` is present, it indicates a user's specific override, but these documents are primarily for organization-level defaults.",
+          "params": [
+            {
+              "name": "organizationId",
+              "description": "The unique identifier of the organization these settings apply to."
+            },
+            {
+              "name": "settingId",
+              "description": "The unique identifier for the notification setting (e.g., 'default')."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/emailNotificationSettings/{settingId}",
+        "definition": {
+          "entityName": "EmailNotificationSetting",
+          "schema": {
+            "$ref": "#/backend/entities/EmailNotificationSetting"
+          },
+          "description": "Personal email notification preferences for a specific user. Includes denormalized `userId` and `organizationId` (from user's profile) for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user these settings belong to."
+            },
+            {
+              "name": "settingId",
+              "description": "The unique identifier for the notification setting (e.g., 'default')."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The proposed Firestore structure prioritizes Authorization Independence and Structural Segregation to ensure robust, debuggable, and scalable security rules. Each document contains all necessary authorization context, eliminating the need for `get()` calls in security rules.\n\n**Authorization Independence via Denormalization:**\n*   **Organization Context:** For all subcollections directly or indirectly under `/organizations/{organizationId}`, the `organizationId` is explicitly denormalized into each document (e.g., `ChatWidgetConfiguration`, `Customer`, `ChatSession`, `AgentSmartReply`, `EmailNotificationSetting`). This allows rules to verify ownership and organizational scope without fetching the parent organization document.\n*   **User/Customer Context:** `User` documents include `organizationId` and `role`. `ChatSession` documents denormalize `customerId` and `agentId`. Crucially, for `ChatMessage` documents, the `organizationId` and `customerId` of the parent `ChatSession` must also be denormalized directly into each `ChatMessage` document. This ensures that rules can determine sender/receiver identity and organizational context at the message level, preventing rules from needing to `get()` the parent `ChatSession`.\n\n**QAPs (Queries as Authorization Policies):**\n*   **Structural Segregation:** Data with different security postures is stored in separate collections or subcollections. For instance, global `AgentSmartReply` documents are separate from organization-specific ones, allowing distinct access rules.\n*   **Path-Based Security:** User-specific data (e.g., `/users/{userId}/emailNotificationSettings`) is stored in paths owned by the `userId` in the path, making it simple to write rules that grant access only to the authenticated user (`request.auth.uid`).\n*   **Denormalized Fields for Lists:** By including `organizationId` and `customerId` directly in documents like `ChatSession` and `ChatMessage`, queries for lists (e.g., \"all chat sessions for my organization\" or \"all my messages in a session\") can be directly filtered by these fields, and security rules can validate these filters efficiently without resorting to `get()` or insecure `list` operations. For example, an agent can `list` `/organizations/{organizationId}/chatSessions` by filtering `organizationId` to match their own, and the rules can enforce `resource.data.organizationId == request.auth.token.organizationId`.\n\n**Handling User Request Ambiguity:**\n*   The request \"saving of datas should be to email addresses\" is interpreted as ensuring email functionality and proper storage of email addresses within relevant entities (e.g., `User.email`, `Customer.email`, `EmailNotificationSetting.recipientEmail`), rather than using email addresses as document IDs or a primary storage mechanism. Firestore is the primary database. End-to-end encryption is an application-level concern and does not directly dictate the data structure but the content of the fields."
+  }
+}
