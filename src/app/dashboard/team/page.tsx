@@ -15,6 +15,7 @@ import { collection, query, where, addDoc, serverTimestamp } from 'firebase/fire
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { sendTeamInvitation } from '@/lib/email-action'
 
 export default function TeamPage() {
   const { user } = useUser()
@@ -36,11 +37,17 @@ export default function TeamPage() {
   const { data: teamMembers, isLoading } = useCollection(teamQuery)
 
   const handleInvite = async () => {
-    if (!inviteEmail) return
+    if (!inviteEmail || !db || !user) return
     setIsInviting(true)
     try {
-      // In a real app, this would trigger a Nodemailer invite flow
-      // For now, we simulate adding a placeholder user record
+      // 1. Send the invitation email via server action
+      await sendTeamInvitation(
+        inviteEmail, 
+        inviteRole, 
+        user.displayName || user.email?.split('@')[0] || 'A Teammate'
+      )
+
+      // 2. Add the user to Firestore with "invited" status
       await addDoc(collection(db, 'users'), {
         email: inviteEmail,
         role: inviteRole,
@@ -57,9 +64,10 @@ export default function TeamPage() {
       setInviteEmail('')
       setIsDialogOpen(false)
     } catch (error) {
+      console.error("Invite error:", error)
       toast({
         title: "Error",
-        description: "Failed to send invitation.",
+        description: "Failed to send invitation. Please check your SMTP settings.",
         variant: "destructive"
       })
     } finally {
@@ -120,9 +128,10 @@ export default function TeamPage() {
               <Button 
                 onClick={handleInvite} 
                 disabled={isInviting || !inviteEmail}
-                className="w-full rounded-xl"
+                className="w-full rounded-xl h-12"
               >
-                {isInviting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Invitation"}
+                {isInviting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {isInviting ? "Sending..." : "Send Invitation"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -162,9 +171,9 @@ export default function TeamPage() {
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
                         <AvatarImage src={`https://picsum.photos/seed/${member.id}/80/80`} />
-                        <AvatarFallback>{member.email[0].toUpperCase()}</AvatarFallback>
+                        <AvatarFallback>{member.email?.[0].toUpperCase() || '?'}</AvatarFallback>
                       </Avatar>
-                      <span className="font-semibold">{member.firstName || member.email.split('@')[0]}</span>
+                      <span className="font-semibold">{member.firstName || member.email?.split('@')[0] || 'New Member'}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm font-medium">
@@ -197,6 +206,13 @@ export default function TeamPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {(!teamMembers || teamMembers.length === 0) && !isLoading && (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground italic text-sm">
+                    No team members found. Start by inviting someone!
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
