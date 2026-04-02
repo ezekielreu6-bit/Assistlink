@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react'
@@ -26,32 +27,32 @@ export default function TeamPage() {
   const [isInviting, setIsInviting] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
+  const orgId = user?.email ? user.email.replace(/\./g, '_') : null
+
   const teamQuery = useMemoFirebase(() => {
-    if (!db) return null
+    if (!db || !orgId) return null
     return query(
       collection(db, 'users'),
-      where('organizationId', '==', 'default-org')
+      where('organizationId', '==', orgId)
     )
-  }, [db])
+  }, [db, orgId])
 
   const { data: teamMembers, isLoading } = useCollection(teamQuery)
 
   const handleInvite = async () => {
-    if (!inviteEmail || !db || !user) return
+    if (!inviteEmail || !db || !user || !orgId) return
     setIsInviting(true)
     try {
-      // 1. Send the invitation email via server action
       await sendTeamInvitation(
         inviteEmail, 
         inviteRole, 
         user.displayName || user.email?.split('@')[0] || 'A Teammate'
       )
 
-      // 2. Add the user to Firestore with "invited" status
       await addDoc(collection(db, 'users'), {
         email: inviteEmail,
         role: inviteRole,
-        organizationId: 'default-org',
+        organizationId: orgId,
         status: 'invited',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

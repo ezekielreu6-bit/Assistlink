@@ -15,25 +15,30 @@ import {
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import Link from 'next/link'
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase'
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, limit, orderBy } from 'firebase/firestore'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 
 export default function DashboardOverview() {
+  const { user } = useUser()
   const db = useFirestore()
+  const orgId = user?.email ? user.email.replace(/\./g, '_') : null
 
-  const sessionsQuery = useMemoFirebase(() => query(collection(db, 'organizations', 'default-org', 'chatSessions')), [db])
+  const sessionsQuery = useMemoFirebase(() => {
+    if (!db || !orgId) return null
+    return query(collection(db, 'organizations', orgId, 'chatSessions'))
+  }, [db, orgId])
   const { data: allSessions } = useCollection(sessionsQuery)
 
   const activeSessionsQuery = useMemoFirebase(() => {
-    if (!db) return null
+    if (!db || !orgId) return null
     return query(
-      collection(db, 'organizations', 'default-org', 'chatSessions'),
+      collection(db, 'organizations', orgId, 'chatSessions'),
       orderBy('updatedAt', 'desc'),
       limit(5)
     )
-  }, [db])
+  }, [db, orgId])
   const { data: recentSessions, isLoading: loadingSessions } = useCollection(activeSessionsQuery)
 
   const activeCount = allSessions?.filter(s => s.status !== 'resolved').length || 0

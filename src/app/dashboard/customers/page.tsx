@@ -1,3 +1,4 @@
+
 "use client"
 
 import React from 'react'
@@ -8,20 +9,22 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, MoreHorizontal, UserPlus, Filter, Loader2, Mail, Clock } from 'lucide-react'
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase'
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, orderBy } from 'firebase/firestore'
 import { formatDistanceToNow } from 'date-fns'
 
 export default function CustomersPage() {
+  const { user } = useUser()
   const db = useFirestore()
+  const orgId = user?.email ? user.email.replace(/\./g, '_') : null
 
   const customersQuery = useMemoFirebase(() => {
-    if (!db) return null
+    if (!db || !orgId) return null
     return query(
-      collection(db, 'organizations', 'default-org', 'customers'),
+      collection(db, 'organizations', orgId, 'customers'),
       orderBy('createdAt', 'desc')
     )
-  }, [db])
+  }, [db, orgId])
 
   const { data: customers, isLoading } = useCollection(customersQuery)
 

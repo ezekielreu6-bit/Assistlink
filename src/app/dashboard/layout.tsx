@@ -1,6 +1,7 @@
+
 "use client"
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
@@ -42,6 +43,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const db = useFirestore()
   const router = useRouter()
   const { setOpenMobile, isMobile } = useSidebar()
+  const [isInitializing, setIsInitializing] = useState(true)
 
   useEffect(() => {
     if (isMobile) {
@@ -49,33 +51,42 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, isMobile, setOpenMobile])
 
-  // Key data by email address as requested
   const userRef = useMemoFirebase(() => user?.email ? doc(db, 'users', user.email) : null, [db, user])
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef)
 
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push('/login')
-    } else if (user && user.email && !isProfileLoading && !userProfile && db) {
-      const orgId = user.email.replace(/\./g, '_')
-      
-      // Ensure user profile exists, keyed by email
-      setDoc(doc(db, 'users', user.email), {
-        id: user.uid,
-        email: user.email,
-        role: 'admin',
-        organizationId: orgId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
-      
-      // Ensure personalized organization exists
-      setDoc(doc(db, 'organizations', orgId), {
-        id: orgId,
-        name: `${user.email.split('@')[0]}'s Team`,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
+      return
+    }
+
+    if (user && user.email && !isProfileLoading && db) {
+      if (!userProfile) {
+        const orgId = user.email.replace(/\./g, '_')
+        
+        const setupProfile = async () => {
+          await setDoc(doc(db, 'users', user.email!), {
+            id: user.uid,
+            email: user.email,
+            role: 'admin',
+            organizationId: orgId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true })
+          
+          await setDoc(doc(db, 'organizations', orgId), {
+            id: orgId,
+            name: `${user.email!.split('@')[0]}'s Team`,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true })
+          
+          setIsInitializing(false)
+        }
+        setupProfile()
+      } else {
+        setIsInitializing(false)
+      }
     }
   }, [user, isUserLoading, router, userProfile, isProfileLoading, db])
 
@@ -93,7 +104,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     { name: 'Settings', icon: Settings, href: '/dashboard/settings' },
   ]
 
-  if (isUserLoading || (user && isProfileLoading)) {
+  if (isUserLoading || isInitializing || (user && isProfileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse flex flex-col items-center gap-4">
