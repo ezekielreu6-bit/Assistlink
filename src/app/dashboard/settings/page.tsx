@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react'
@@ -15,7 +16,7 @@ import { extractWebsiteColors } from '@/ai/flows/website-color-extractor-flow'
 export default function SettingsPage() {
   const [primaryColor, setPrimaryColor] = useState('#3333CC')
   const [accentColor, setAccentColor] = useState('#1FBAF5')
-  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('https://assistlink.vercel.app')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
@@ -27,20 +28,32 @@ export default function SettingsPage() {
     }
     setLoading(true)
     try {
-      // For demo purposes, we'll simulate the flow with a prompt if needed 
-      // but the actual flow takes a screenshot data URI which we don't have in a simple client-side mock
-      // So we'll use a placeholder behavior or mock if screenshot is missing.
-      // Normally, you'd capture the screen. Here we'll show the UI flow.
+      // For this prototype, we simulate a screenshot by fetching a related image 
+      // and passing it to the real Genkit extraction flow.
+      const response = await fetch(`https://picsum.photos/seed/${encodeURIComponent(websiteUrl)}/1200/800`);
+      const blob = await response.blob();
+      const reader = new FileReader();
       
-      // MOCK BEHAVIOR as screenshotting is complex without a backend worker
-      setTimeout(() => {
-        setPrimaryColor('#4F46E5')
-        setAccentColor('#06B6D4')
-        setLoading(false)
-        toast({ title: "Colors Extracted", description: "AI suggested new brand colors for your widget." })
-      }, 1500)
+      const dataUri = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+
+      const result = await extractWebsiteColors({
+        screenshotDataUri: dataUri,
+        websiteUrl: websiteUrl
+      });
+
+      if (result.colors && result.colors.length >= 2) {
+        setPrimaryColor(result.colors[0]);
+        setAccentColor(result.colors[1]);
+        toast({ title: "Colors Extracted", description: "AI identified your brand colors from the visual profile." })
+      } else {
+        throw new Error("No colors returned");
+      }
     } catch (error) {
-      toast({ title: "Extraction Failed", description: "Could not analyze website colors.", variant: "destructive" })
+      toast({ title: "Extraction Failed", description: "Could not analyze website colors. Please check the URL.", variant: "destructive" })
+    } finally {
       setLoading(false)
     }
   }
@@ -62,7 +75,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-8 max-w-6xl mx-auto animate-in fade-in duration-500">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Widget Customization</h1>
         <p className="text-muted-foreground mt-1">Design your chat widget to match your brand identity.</p>
@@ -83,21 +96,21 @@ export default function SettingsPage() {
             </TabsList>
 
             <TabsContent value="design" className="space-y-6">
-              <Card className="border-none shadow-sm overflow-hidden">
+              <Card className="border-none shadow-sm overflow-hidden rounded-2xl">
                 <CardHeader className="bg-primary/5 border-b border-primary/10">
                   <div className="flex items-center gap-2">
                     <Wand2 className="w-5 h-5 text-primary" />
                     <CardTitle className="text-lg">AI Smart Theme</CardTitle>
                   </div>
-                  <CardDescription>Enter your website URL to automatically extract your brand colors.</CardDescription>
+                  <CardDescription>Enter your website URL to automatically extract your brand colors using GenAI.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <div className="relative flex-1">
                       <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input 
                         placeholder="https://yourbrand.com" 
-                        className="pl-10 h-12 rounded-xl"
+                        className="pl-10 h-12 rounded-xl bg-muted/20 border-none"
                         value={websiteUrl}
                         onChange={(e) => setWebsiteUrl(e.target.value)}
                       />
@@ -105,31 +118,32 @@ export default function SettingsPage() {
                     <Button 
                       onClick={handleAiExtract} 
                       disabled={loading}
-                      className="h-12 rounded-xl px-6 bg-accent hover:bg-accent/90"
+                      className="h-12 rounded-xl px-6 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
                     >
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Extract Colors"}
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wand2 className="w-4 h-4 mr-2" />}
+                      {loading ? "Analyzing..." : "Extract Colors"}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-none shadow-sm">
+              <Card className="border-none shadow-sm rounded-2xl">
                 <CardHeader>
                   <CardTitle className="text-lg">Manual Configuration</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-3">
                       <Label className="text-sm font-semibold">Primary Color</Label>
                       <div className="flex gap-3">
                         <div 
-                          className="w-10 h-10 rounded-lg border shadow-inner shrink-0" 
+                          className="w-12 h-12 rounded-xl border-4 border-white shadow-sm shrink-0" 
                           style={{ backgroundColor: primaryColor }}
                         />
                         <Input 
                           value={primaryColor} 
                           onChange={(e) => setPrimaryColor(e.target.value)}
-                          className="font-mono rounded-lg"
+                          className="font-mono rounded-xl h-12"
                         />
                       </div>
                     </div>
@@ -137,13 +151,13 @@ export default function SettingsPage() {
                       <Label className="text-sm font-semibold">Accent Color</Label>
                       <div className="flex gap-3">
                         <div 
-                          className="w-10 h-10 rounded-lg border shadow-inner shrink-0" 
+                          className="w-12 h-12 rounded-xl border-4 border-white shadow-sm shrink-0" 
                           style={{ backgroundColor: accentColor }}
                         />
                         <Input 
                           value={accentColor} 
                           onChange={(e) => setAccentColor(e.target.value)}
-                          className="font-mono rounded-lg"
+                          className="font-mono rounded-xl h-12"
                         />
                       </div>
                     </div>
@@ -153,7 +167,7 @@ export default function SettingsPage() {
                     <Label className="text-sm font-semibold">Welcome Message</Label>
                     <Textarea 
                       placeholder="Hi! How can we help you today?" 
-                      className="rounded-xl min-h-[100px] bg-muted/20"
+                      className="rounded-2xl min-h-[120px] bg-muted/20 border-none p-4"
                     />
                   </div>
                 </CardContent>
@@ -161,7 +175,7 @@ export default function SettingsPage() {
             </TabsContent>
 
             <TabsContent value="installation">
-              <Card className="border-none shadow-sm">
+              <Card className="border-none shadow-sm rounded-2xl">
                 <CardHeader>
                   <CardTitle className="text-lg">Embed Code</CardTitle>
                   <CardDescription>Copy and paste this code before the closing &lt;/body&gt; tag of your website.</CardDescription>
@@ -175,9 +189,10 @@ export default function SettingsPage() {
                       variant="outline" 
                       size="sm" 
                       onClick={copyEmbed}
-                      className="absolute top-4 right-4 bg-white/50 backdrop-blur opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
+                      className="absolute top-4 right-4 bg-white/80 backdrop-blur opacity-0 group-hover:opacity-100 transition-all rounded-xl shadow-sm border-none"
                     >
                       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      <span className="ml-2">{copied ? "Copied" : "Copy"}</span>
                     </Button>
                   </div>
                 </CardContent>
@@ -187,13 +202,13 @@ export default function SettingsPage() {
         </div>
 
         <div className="lg:col-span-5 sticky top-24">
-          <div className="p-4 rounded-3xl bg-muted/30 border border-dashed border-border/50">
-            <p className="text-xs font-bold text-center uppercase tracking-widest text-muted-foreground mb-6">Live Preview</p>
+          <div className="p-6 rounded-[2.5rem] bg-white border border-border/50 shadow-xl shadow-primary/5">
+            <p className="text-[10px] font-bold text-center uppercase tracking-[0.2em] text-muted-foreground mb-8">Live Preview</p>
             <div className="flex justify-center">
               <ChatPreview 
                 primaryColor={primaryColor} 
                 accentColor={accentColor}
-                companyName="YourBrand"
+                companyName="AssistLink"
                 welcomeMessage="Hi! How can we help you today?"
               />
             </div>

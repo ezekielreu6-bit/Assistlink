@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -21,16 +22,19 @@ import {
   CheckCircle,
   Archive,
   Loader2,
-  MessageSquare
+  MessageSquare,
+  CheckCircle2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useFirestore, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase'
 import { collection, query, orderBy, doc, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { formatDistanceToNow } from 'date-fns'
+import { useToast } from '@/hooks/use-toast'
 
 export default function ChatPage() {
   const { user } = useUser()
   const db = useFirestore()
+  const { toast } = useToast()
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
 
@@ -68,7 +72,6 @@ export default function ChatPage() {
 
     const messageData = {
       chatSessionId: selectedSessionId,
-      // Use email as senderId for consistency with profile IDs
       senderId: user.email || user.uid,
       senderType: 'agent',
       content,
@@ -82,6 +85,20 @@ export default function ChatPage() {
       updatedAt: serverTimestamp(),
       lastMessage: content
     })
+  }
+
+  const handleResolveSession = async () => {
+    if (!selectedSessionId || !db) return;
+    
+    updateDoc(doc(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId), {
+      status: 'resolved',
+      updatedAt: serverTimestamp()
+    });
+    
+    toast({
+      title: "Session Resolved",
+      description: "The conversation has been marked as resolved.",
+    });
   }
 
   const handleSelectReply = (reply: string) => {
@@ -120,9 +137,12 @@ export default function ChatPage() {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-0.5">
-                  <p className={cn("text-sm font-semibold truncate", selectedSessionId === session.id ? "text-primary" : "text-foreground")}>
-                    {session.customerName || 'Anonymous'}
-                  </p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className={cn("text-sm font-semibold truncate", selectedSessionId === session.id ? "text-primary" : "text-foreground")}>
+                      {session.customerName || 'Anonymous'}
+                    </p>
+                    {session.status === 'resolved' && <CheckCircle2 className="w-3 h-3 text-green-500" />}
+                  </div>
                   <span className="text-[10px] text-muted-foreground">
                     {session.updatedAt ? formatDistanceToNow(session.updatedAt.toDate()) : 'Now'}
                   </span>
@@ -137,8 +157,8 @@ export default function ChatPage() {
       </Card>
 
       {selectedSessionId ? (
-        <Card className="flex-1 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b flex items-center justify-between bg-white">
+        <Card className="flex-1 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden relative">
+          <div className="px-6 py-4 border-b flex items-center justify-between bg-white z-10">
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSelectedSessionId(null)}>
                 <User className="w-4 h-4" />
@@ -149,7 +169,15 @@ export default function ChatPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-semibold text-sm">{activeSession?.customerName || 'Anonymous'}</h2>
-                  <Badge variant="secondary" className="text-[10px] h-4 uppercase tracking-tighter bg-green-100 text-green-700">Online</Badge>
+                  <Badge 
+                    variant="secondary" 
+                    className={cn(
+                      "text-[10px] h-4 uppercase tracking-tighter",
+                      activeSession?.status === 'resolved' ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                    )}
+                  >
+                    {activeSession?.status || 'Online'}
+                  </Badge>
                 </div>
                 <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                   <Clock className="w-3 h-3" />
@@ -164,10 +192,15 @@ export default function ChatPage() {
               <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-muted-foreground hover:bg-primary/10 hover:text-primary rounded-full">
                 <Video className="w-4 h-4" />
               </Button>
-              <Button className="bg-primary hover:bg-primary/90 text-white gap-2 ml-2 rounded-xl h-9 px-4">
-                <CheckCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Resolve</span>
-              </Button>
+              {activeSession?.status !== 'resolved' && (
+                <Button 
+                  className="bg-primary hover:bg-primary/90 text-white gap-2 ml-2 rounded-xl h-9 px-4 shadow-lg shadow-primary/20"
+                  onClick={handleResolveSession}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Resolve</span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -177,7 +210,7 @@ export default function ChatPage() {
                 <div 
                   key={msg.id || idx} 
                   className={cn(
-                    "flex flex-col gap-1 max-w-[85%] sm:max-w-[70%]",
+                    "flex flex-col gap-1 max-w-[85%] sm:max-w-[70%] animate-in fade-in slide-in-from-bottom-2",
                     msg.senderType === 'agent' ? "ml-auto items-end" : "items-start"
                   )}
                 >
@@ -232,9 +265,9 @@ export default function ChatPage() {
           </div>
         </Card>
       ) : (
-        <Card className="flex-1 border-none shadow-sm flex flex-col items-center justify-center text-center p-12 rounded-2xl">
-          <div className="w-20 h-20 bg-muted/30 rounded-full flex items-center justify-center mb-6">
-            <MessageSquare className="w-10 h-10 text-muted-foreground" />
+        <Card className="flex-1 border-none shadow-sm flex flex-col items-center justify-center text-center p-12 rounded-2xl bg-white">
+          <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
+            <MessageSquare className="w-10 h-10 text-primary/40" />
           </div>
           <h2 className="text-xl font-bold mb-2">No conversation selected</h2>
           <p className="text-muted-foreground max-w-sm">

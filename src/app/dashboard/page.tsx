@@ -9,7 +9,8 @@ import {
   Clock, 
   ThumbsUp, 
   UserPlus,
-  Loader2
+  Loader2,
+  Settings
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -35,7 +36,7 @@ export default function DashboardOverview() {
   }, [db])
   const { data: recentSessions, isLoading: loadingSessions } = useCollection(activeSessionsQuery)
 
-  const activeCount = allSessions?.filter(s => s.status === 'open').length || 0
+  const activeCount = allSessions?.filter(s => s.status !== 'resolved').length || 0
   const resolvedCount = allSessions?.filter(s => s.status === 'resolved').length || 0
 
   const stats = [
@@ -47,14 +48,22 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Welcome back, Agent!</h1>
-        <p className="text-muted-foreground mt-1 text-sm sm:text-base">Here's a live look at your support performance.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Welcome back, Agent!</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Here's a live look at your support performance.</p>
+        </div>
+        <Button variant="outline" className="rounded-xl hidden sm:flex border-none shadow-sm bg-white" asChild>
+          <Link href="/dashboard/settings">
+            <Settings className="w-4 h-4 mr-2" />
+            Widget Settings
+          </Link>
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.label} className="border-none shadow-sm hover:shadow-md transition-shadow">
+          <Card key={stat.label} className="border-none shadow-sm hover:shadow-md transition-shadow rounded-2xl">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between space-y-0 pb-2">
                 <p className="text-[10px] sm:text-sm font-medium text-muted-foreground truncate">{stat.label}</p>
@@ -64,7 +73,7 @@ export default function DashboardOverview() {
               </div>
               <div className="flex items-baseline gap-2">
                 <div className="text-lg sm:text-2xl font-bold">{stat.value}</div>
-                <span className="hidden sm:inline text-[10px] text-green-600 font-bold">+Live</span>
+                <span className="hidden sm:inline text-[10px] text-green-600 font-bold uppercase tracking-tighter">Live</span>
               </div>
             </CardContent>
           </Card>
@@ -72,25 +81,25 @@ export default function DashboardOverview() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-7">
-        <Card className="md:col-span-4 border-none shadow-sm">
+        <Card className="md:col-span-4 border-none shadow-sm rounded-2xl bg-white">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Recent Activity</CardTitle>
                 <CardDescription>Latest incoming messages needing attention.</CardDescription>
               </div>
-              <Button variant="outline" size="sm" asChild className="hidden sm:flex">
+              <Button variant="ghost" size="sm" asChild className="text-primary hover:bg-primary/5">
                 <Link href="/dashboard/chat">View All</Link>
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             {loadingSessions ? (
-              <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+              <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
             ) : (
               <div className="space-y-4">
                 {recentSessions?.map((chat) => (
-                  <Link key={chat.id} href={`/dashboard/chat?session=${chat.id}`} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-muted/30 transition-colors group">
+                  <Link key={chat.id} href={`/dashboard/chat`} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-muted/30 transition-colors group">
                     <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white shadow-sm">
                       <AvatarFallback>{chat.customerName?.[0] || 'C'}</AvatarFallback>
                     </Avatar>
@@ -106,14 +115,14 @@ export default function DashboardOverview() {
                   </Link>
                 ))}
                 {(!recentSessions || recentSessions.length === 0) && (
-                  <p className="text-center text-muted-foreground text-sm py-8">No recent messages.</p>
+                  <p className="text-center text-muted-foreground text-sm py-8 italic">No recent messages.</p>
                 )}
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-3 border-none shadow-sm bg-primary text-white overflow-hidden relative">
+        <Card className="md:col-span-3 border-none shadow-sm bg-primary text-white overflow-hidden relative rounded-2xl">
           <div className="absolute top-[-20px] right-[-20px] w-40 h-40 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute bottom-[-20px] left-[-20px] w-32 h-32 bg-accent/20 rounded-full blur-2xl" />
           
@@ -122,13 +131,24 @@ export default function DashboardOverview() {
             <CardDescription className="text-white/70 text-xs">Manage your workspace easily.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 relative">
-            <Button className="w-full bg-white text-primary hover:bg-white/90 justify-start h-11 sm:h-12 rounded-xl shadow-lg text-sm">
-              <UserPlus className="w-4 h-4 mr-3" />
-              Invite Team Member
+            <Button 
+              className="w-full bg-white text-primary hover:bg-white/90 justify-start h-11 sm:h-12 rounded-xl shadow-lg text-sm border-none"
+              asChild
+            >
+              <Link href="/dashboard/team">
+                <UserPlus className="w-4 h-4 mr-3" />
+                Invite Team Member
+              </Link>
             </Button>
-            <Button variant="outline" className="w-full border-white/30 hover:bg-white/10 text-white justify-start h-11 sm:h-12 rounded-xl text-sm">
-              <MessageSquare className="w-4 h-4 mr-3" />
-              Create Auto-Response
+            <Button 
+              variant="outline" 
+              className="w-full border-white/30 hover:bg-white/10 text-white justify-start h-11 sm:h-12 rounded-xl text-sm"
+              asChild
+            >
+              <Link href="/dashboard/settings">
+                <MessageSquare className="w-4 h-4 mr-3" />
+                Customize Widget
+              </Link>
             </Button>
             <div className="pt-4 border-t border-white/10 mt-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-3">Today's Progress</p>
@@ -137,7 +157,7 @@ export default function DashboardOverview() {
                 <span className="font-bold">{activeCount > 0 ? 'Active' : 'Idle'}</span>
               </div>
               <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-accent w-[40%]" />
+                <div className="h-full bg-accent" style={{ width: allSessions?.length ? `${(resolvedCount / allSessions.length) * 100}%` : '0%' }} />
               </div>
             </div>
           </CardContent>
