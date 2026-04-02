@@ -34,7 +34,6 @@ export default function ChatPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
 
-  // Query all active chat sessions for the organization
   const sessionsQuery = useMemoFirebase(() => {
     if (!db) return null
     return query(
@@ -45,7 +44,6 @@ export default function ChatPage() {
 
   const { data: sessions, isLoading: sessionsLoading } = useCollection(sessionsQuery)
 
-  // Query messages for selected session
   const messagesQuery = useMemoFirebase(() => {
     if (!db || !selectedSessionId) return null
     return query(
@@ -56,31 +54,30 @@ export default function ChatPage() {
 
   const { data: messages } = useCollection(messagesQuery)
 
-  // Get selected session details
   const sessionRef = useMemoFirebase(() => 
-    selectedSessionId ? doc(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId) : null,
+    (db && selectedSessionId) ? doc(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId) : null,
     [db, selectedSessionId]
   )
   const { data: activeSession } = useDoc(sessionRef)
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !selectedSessionId || !user) return
+    if (!inputValue.trim() || !selectedSessionId || !user || !db) return
     
     const content = inputValue
     setInputValue('')
 
-    // Add message to Firestore
-    await addDoc(collection(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId, 'chatMessages'), {
+    const messageData = {
       chatSessionId: selectedSessionId,
       senderId: user.uid,
       senderType: 'agent',
       content,
       timestamp: serverTimestamp(),
       organizationId: 'default-org'
-    })
+    }
 
-    // Update session timestamp
-    await updateDoc(doc(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId), {
+    addDoc(collection(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId, 'chatMessages'), messageData)
+
+    updateDoc(doc(db, 'organizations', 'default-org', 'chatSessions', selectedSessionId), {
       updatedAt: serverTimestamp(),
       lastMessage: content
     })
@@ -92,7 +89,6 @@ export default function ChatPage() {
 
   return (
     <div className="h-[calc(100vh-10rem)] flex flex-col lg:flex-row gap-6 overflow-hidden animate-in slide-in-from-bottom-2 duration-500">
-      {/* Sidebar List */}
       <Card className={cn(
         "w-full lg:w-80 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden shrink-0",
         selectedSessionId && "hidden lg:flex"
@@ -139,10 +135,8 @@ export default function ChatPage() {
         </ScrollArea>
       </Card>
 
-      {/* Main Chat Area */}
       {selectedSessionId ? (
         <Card className="flex-1 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden">
-          {/* Chat Header */}
           <div className="px-6 py-4 border-b flex items-center justify-between bg-white">
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSelectedSessionId(null)}>
@@ -176,7 +170,6 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Messages List */}
           <ScrollArea className="flex-1 p-6 bg-muted/5">
             <div className="space-y-6">
               {messages?.map((msg, idx) => (
@@ -205,7 +198,6 @@ export default function ChatPage() {
             </div>
           </ScrollArea>
 
-          {/* AI Smart Replies & Input */}
           <div className="p-4 sm:p-6 border-t bg-white space-y-4">
             <SmartReplies 
               customerMessage={activeSession?.lastMessage || ''}

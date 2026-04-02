@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useEffect } from 'react'
@@ -12,8 +13,7 @@ import {
   LayoutDashboard,
   LogOut,
   Bell,
-  Search,
-  UserGroup
+  Search
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,21 +44,19 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { setOpenMobile, isMobile } = useSidebar()
 
-  // Automatically close sidebar on route change for mobile
   useEffect(() => {
     if (isMobile) {
       setOpenMobile(false)
     }
   }, [pathname, isMobile, setOpenMobile])
 
-  // Ensure user profile exists in Firestore
   const userRef = useMemoFirebase(() => user ? doc(db, 'users', user.uid) : null, [db, user])
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userRef)
 
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push('/login')
-    } else if (user && !isProfileLoading && !userProfile) {
+    } else if (user && !isProfileLoading && !userProfile && db) {
       setDoc(doc(db, 'users', user.uid), {
         id: user.uid,
         email: user.email,
@@ -95,7 +93,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse flex flex-col items-center gap-4">
-          <Image src="/logo.png" alt="Loading" width={60} height={60} />
+          <Image src="/logo.png" alt="Loading" width={64} height={64} className="rounded-xl" />
           <p className="text-sm font-medium text-muted-foreground">Securing your session...</p>
         </div>
       </div>
@@ -191,7 +189,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <DashboardLayoutContent>{children}</DashboardLayoutContent>
