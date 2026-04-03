@@ -24,8 +24,7 @@ import {
   Loader2, 
   Calendar, 
   AlertCircle, 
-  Trash2,
-  UserMinus
+  Trash2
 } from 'lucide-react'
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, where, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
@@ -56,44 +55,49 @@ export default function TeamPage() {
 
   const { data: teamMembers, isLoading } = useCollection(teamQuery)
 
-  // --- DELETE MEMBER LOGIC ---
-  const handleDeleteMember = async (memberEmail: string, inviteId?: string) => {
+  // --- FIXED DELETE MEMBER LOGIC ---
+  const handleDeleteMember = async (memberId: string, inviteId?: string) => {
     if (!db || !orgId) return
-    
-    // Safety check: Don't let user delete themselves easily here
-    if (memberEmail === user?.email) {
-      toast({ title: "Action Denied", description: "You cannot remove yourself from the team page.", variant: "destructive" })
+
+    if (memberId === user?.email) {
+      toast({ title: "Action Denied", description: "You cannot remove yourself.", variant: "destructive" })
       return
     }
 
-    if (!confirm(`Are you sure you want to remove ${memberEmail} from your team?`)) return
+    const confirmDelete = window.confirm(`Are you sure you want to remove ${memberId}?`)
+    if (!confirmDelete) return
 
     try {
-      // 1. Remove from users collection
-      await deleteDoc(doc(db, 'users', memberEmail))
+      // Use memberId because that is the Firestore Document Name (the email)
+      await deleteDoc(doc(db, 'users', memberId))
 
-      // 2. Remove from invitations if it was a pending invite
       if (inviteId) {
         await deleteDoc(doc(db, 'invitations', inviteId))
       }
 
-      toast({ title: "Member removed", description: "The user has been removed from your organization." })
-    } catch (error) {
+      toast({ title: "Member removed", description: "Successfully updated team." })
+    } catch (error: any) {
       console.error("Delete error:", error)
-      toast({ title: "Error", description: "Failed to remove member.", variant: "destructive" })
+      toast({ 
+        title: "Delete Failed", 
+        description: error.code === 'permission-denied' 
+          ? "You don't have permission. Are you an Admin?" 
+          : "An error occurred.", 
+        variant: "destructive" 
+      })
     }
   }
 
   const handleInvite = async () => {
     if (!inviteEmail || !db || !user || !orgId) return
     if (teamMembers && teamMembers.length >= 5) {
-      toast({ title: "Limit Reached", description: "Free tier is limited to 5 team members.", variant: "destructive" })
+      toast({ title: "Limit Reached", description: "Free tier is limited to 5 members.", variant: "destructive" })
       return
     }
 
     setIsInviting(true)
     try {
-      const inviteId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const inviteId = Math.random().toString(36).substring(2, 15);
       const inviterName = user.displayName || user.email?.split('@')[0] || 'A Teammate'
 
       const emailResult = await sendTeamInvitation(inviteEmail, inviteRole, inviterName, inviteId)
@@ -108,6 +112,7 @@ export default function TeamPage() {
         createdAt: serverTimestamp()
       })
 
+      // Set document ID as the email
       const userDocRef = doc(db, 'users', inviteEmail.toLowerCase().trim())
       await setDoc(userDocRef, {
         email: inviteEmail.toLowerCase().trim(),
@@ -120,7 +125,7 @@ export default function TeamPage() {
         updatedAt: serverTimestamp(),
       })
 
-      toast({ title: "Invitation sent", description: `Invite link sent to ${inviteEmail}.` })
+      toast({ title: "Invitation sent" })
       setInviteEmail('')
       setIsDialogOpen(false)
     } catch (error: any) {
@@ -132,52 +137,40 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-8">
-      {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="text-center sm:text-left">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Team Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your support agents and administrative staff.</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage your support agents.</p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto rounded-xl gap-2 shadow-lg shadow-primary/20 h-11">
+            <Button className="w-full sm:w-auto rounded-xl gap-2 h-11">
               <UserPlus className="w-4 h-4" />
               Invite Member
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] w-[92vw] rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+          <DialogContent className="sm:max-w-[425px] w-[92vw] rounded-2xl p-6">
             <DialogHeader>
               <DialogTitle>Invite a teammate</DialogTitle>
               <DialogDescription>
-                {teamMembers && teamMembers.length >= 5 ? (
-                  <span className="text-destructive font-bold flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" /> Seat limit reached (5/5)
-                  </span>
-                ) : (
-                  `You are using ${teamMembers?.length || 0} of 5 free seats.`
-                )}
+                {teamMembers && teamMembers.length >= 5 ? "Limit reached (5/5)" : `Using ${teamMembers?.length || 0} of 5 seats.`}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input 
-                    id="email" 
-                    placeholder="teammate@company.com" 
-                    className="pl-10 rounded-xl"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                  />
-                </div>
+                <Label>Email address</Label>
+                <Input 
+                  placeholder="teammate@company.com" 
+                  className="rounded-xl"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
+                <Label>Role</Label>
                 <select 
-                  id="role"
-                  className="w-full h-11 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full h-11 px-3 rounded-xl border bg-background text-sm"
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
                 >
@@ -187,84 +180,54 @@ export default function TeamPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button 
-                onClick={handleInvite} 
-                disabled={isInviting || !inviteEmail || (teamMembers?.length || 0) >= 5}
-                className="w-full rounded-xl h-12"
-              >
-                {isInviting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Mail className="w-4 h-4 mr-2" />}
-                {isInviting ? "Sending..." : "Send Secure Invitation"}
+              <Button onClick={handleInvite} disabled={isInviting || !inviteEmail} className="w-full rounded-xl h-12">
+                {isInviting ? <Loader2 className="animate-spin mr-2" /> : <Mail className="mr-2" />}
+                Send Secure Invitation
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
-        <div className="relative w-full sm:flex-1 sm:max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search members..." className="pl-10 h-11 rounded-xl bg-white border-none shadow-sm w-full" />
-        </div>
-      </div>
-
-      {/* DESKTOP TABLE VIEW */}
       <Card className="hidden md:block border-none shadow-sm overflow-hidden rounded-2xl">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="px-6 h-12 text-xs font-bold uppercase tracking-wider">Member</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider">Email</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider">Role</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider">Status</TableHead>
-                <TableHead className="text-xs font-bold uppercase tracking-wider">Joined</TableHead>
-                <TableHead className="text-right px-6 text-xs font-bold uppercase tracking-wider">Actions</TableHead>
+              <TableRow className="bg-muted/30">
+                <TableHead className="px-6 h-12">Member</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right px-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="h-32 text-center"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : teamMembers?.map((member) => (
-                <TableRow key={member.id} className="group hover:bg-muted/10 transition-colors">
-                  <TableCell className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
-                        <AvatarImage src={`https://picsum.photos/seed/${member.id}/80/80`} />
-                        <AvatarFallback>{member.email?.[0].toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <span className="font-semibold text-sm">{member.firstName || member.email?.split('@')[0]}</span>
-                    </div>
+                <TableRow key={member.id}>
+                  <TableCell className="px-6 py-4 font-semibold">
+                    {member.firstName || member.email?.split('@')[0]}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm font-medium">{member.email}</TableCell>
+                  <TableCell className="text-muted-foreground">{member.email}</TableCell>
+                  <TableCell className="capitalize">{member.role}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold capitalize">
-                      <Shield className={cn("w-3.5 h-3.5", member.role === 'admin' ? "text-purple-600" : "text-blue-600")} />
-                      {member.role}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={cn("rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider", 
-                      member.status === 'invited' ? "bg-amber-100 text-amber-700 hover:bg-amber-100" : "bg-green-100 text-green-700 hover:bg-green-100")}>
+                    <Badge variant={member.status === 'invited' ? 'secondary' : 'default'}>
                       {member.status || 'Active'}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-medium">
-                    {member.createdAt ? format(member.createdAt.toDate(), 'MMM d, yyyy') : 'Recently'}
                   </TableCell>
                   <TableCell className="text-right px-6">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
+                        <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-xl border-none shadow-xl">
+                      <DropdownMenuContent align="end" className="rounded-xl">
                         <DropdownMenuItem 
-                          className="text-destructive focus:text-destructive cursor-pointer gap-2"
-                          onClick={() => handleDeleteMember(member.email, member.inviteId)}
+                          className="text-destructive cursor-pointer"
+                          // Use onSelect for Radix UI Dropdowns
+                          onSelect={() => handleDeleteMember(member.id, member.inviteId)}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4 mr-2" />
                           Remove Member
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -277,63 +240,29 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {/* MOBILE CARD VIEW */}
+      {/* Mobile Card View */}
       <div className="md:hidden space-y-4">
-        {isLoading ? (
-          <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-        ) : teamMembers?.map((member) => (
-          <Card key={member.id} className="border-none shadow-sm rounded-2xl overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm">
-                    <AvatarImage src={`https://picsum.photos/seed/${member.id}/80/80`} />
-                    <AvatarFallback>{member.email?.[0].toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-sm truncate">{member.firstName || member.email?.split('@')[0]}</span>
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
-                      <Mail className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{member.email}</span>
-                    </span>
-                  </div>
-                </div>
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 shrink-0">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="rounded-xl border-none shadow-xl">
-                    <DropdownMenuItem 
-                      className="text-destructive focus:text-destructive cursor-pointer gap-2"
-                      onClick={() => handleDeleteMember(member.email, member.inviteId)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Remove Member
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+        {teamMembers?.map((member) => (
+          <Card key={member.id} className="border-none shadow-sm rounded-2xl p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex flex-col">
+                <span className="font-bold">{member.email}</span>
+                <span className="text-xs text-muted-foreground capitalize">{member.role}</span>
               </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-muted">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
-                    <Shield className={cn("w-3 h-3", member.role === 'admin' ? "text-purple-600" : "text-blue-600")} />
-                    {member.role}
-                  </div>
-                  <Badge className={cn("rounded-full px-2 py-0 text-[8px] font-bold uppercase tracking-widest",
-                      member.status === 'invited' ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700")}>
-                    {member.status || 'Active'}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
-                  <Calendar className="w-3 h-3" />
-                  {member.createdAt ? format(member.createdAt.toDate(), 'MMM d, yy') : 'Now'}
-                </div>
-              </div>
-            </CardContent>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-xl">
+                  <DropdownMenuItem 
+                    className="text-destructive"
+                    onSelect={() => handleDeleteMember(member.id, member.inviteId)}
+                  >
+                    Remove Member
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </Card>
         ))}
       </div>
