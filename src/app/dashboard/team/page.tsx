@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Search, UserPlus, Mail, Shield, MoreHorizontal, Loader2, Calendar } from 'lucide-react'
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
@@ -92,7 +91,7 @@ export default function TeamPage() {
               Invite Member
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] w-[95vw] rounded-2xl sm:rounded-3xl">
+          <DialogContent className="sm:max-w-[425px] w-[92vw] rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Invite a teammate</DialogTitle>
               <DialogDescription>
@@ -221,7 +220,7 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {/* Mobile Card View */}
+      {/* Mobile Card View - Optimized for no horizontal scroll */}
       <div className="md:hidden space-y-4">
         {isLoading ? (
           <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
@@ -229,20 +228,20 @@ export default function TeamPage() {
           <Card key={member.id} className="border-none shadow-sm rounded-2xl overflow-hidden">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm">
                     <AvatarImage src={`https://picsum.photos/seed/${member.id}/80/80`} />
                     <AvatarFallback>{member.email?.[0].toUpperCase() || '?'}</AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-sm">{member.firstName || member.email?.split('@')[0] || 'New Member'}</span>
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      <Mail className="w-3 h-3" />
-                      {member.email}
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-sm truncate">{member.firstName || member.email?.split('@')[0] || 'New Member'}</span>
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
+                      <Mail className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{member.email}</span>
                     </span>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
+                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 shrink-0">
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </div>

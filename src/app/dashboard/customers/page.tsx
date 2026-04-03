@@ -121,7 +121,7 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
 
-      {/* Mobile Card View */}
+      {/* Mobile Card View - Optimized to prevent horizontal scroll */}
       <div className="md:hidden space-y-4">
         {isLoading ? (
           <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
@@ -129,24 +129,24 @@ export default function CustomersPage() {
           <Card key={customer.id} className="border-none shadow-sm rounded-2xl overflow-hidden">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10 border-2 border-white shadow-sm ring-1 ring-border/50">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm ring-1 ring-border/50">
                     <AvatarImage src={`https://picsum.photos/seed/${customer.id}/80/80`} />
                     <AvatarFallback>{customer.name?.[0] || 'C'}</AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-sm">{customer.name || 'Anonymous User'}</span>
-                    <span className="text-[10px] text-muted-foreground">ID: {customer.id.slice(0, 8)}</span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-sm truncate">{customer.name || 'Anonymous User'}</span>
+                    <span className="text-[10px] text-muted-foreground truncate">ID: {customer.id.slice(0, 8)}</span>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full shrink-0">
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </div>
               <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded-lg">
-                  <Mail className="w-3.5 h-3.5 text-primary/60" />
-                  {customer.email || 'not provided'}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded-lg overflow-hidden">
+                  <Mail className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+                  <span className="truncate">{customer.email || 'not provided'}</span>
                 </div>
               </div>
               <div className="flex items-center justify-between pt-3 border-t border-muted">

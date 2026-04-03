@@ -66,7 +66,6 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         const orgId = user.email.replace(/\./g, '_')
         
         const setupProfile = async () => {
-          // Use displayName from Auth if it exists, otherwise fallback to email part
           const name = user.displayName || user.email!.split('@')[0];
           
           await setDoc(doc(db, 'users', user.email!), {
@@ -194,14 +193,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-3 pl-2">
               <div className="hidden lg:block text-right">
                 <p className="text-sm font-semibold truncate max-w-[120px]">
-                  {userProfile?.firstName || user.displayName || user?.email?.split('@')[0]}
+                  {userProfile?.firstName || user?.displayName || user?.email?.split('@')[0]}
                 </p>
                 <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Support Agent</p>
               </div>
               <Avatar className="h-10 w-10 border-2 border-primary/10 cursor-pointer hover:border-primary transition-colors shadow-sm">
                 <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/80/80`} />
                 <AvatarFallback className="bg-primary/5 text-primary font-bold">
-                  {(userProfile?.firstName?.[0] || user.displayName?.[0] || user?.email?.[0] || 'A').toUpperCase()}
+                  {(userProfile?.firstName?.[0] || user?.displayName?.[0] || user?.email?.[0] || 'A').toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </div>
