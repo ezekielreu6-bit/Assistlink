@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 // Ensure this path matches where you saved the email action
-import { sendTeamInvitation } from '@/app/actions/email' 
+import { sendTeamInvitation } from '@/lib/email-actions' 
 
 export default function TeamPage() {
   const { user } = useUser()
