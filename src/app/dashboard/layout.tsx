@@ -13,7 +13,8 @@ import {
   LayoutDashboard,
   LogOut,
   Bell,
-  Search
+  Search,
+  CreditCard
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -101,6 +102,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     { name: 'Customers', icon: Users, href: '/dashboard/customers' },
     { name: 'Team', icon: Users, href: '/dashboard/team' },
     { name: 'Analytics', icon: BarChart3, href: '/dashboard/analytics' },
+    { name: 'Subscription', icon: CreditCard, href: '/dashboard/subscription' },
     { name: 'Settings', icon: Settings, href: '/dashboard/settings' },
   ]
 
@@ -151,7 +153,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           <div className="bg-primary/5 rounded-2xl p-4 mb-4 border border-primary/10">
             <p className="text-xs font-semibold text-primary mb-1">Upgrade to Pro</p>
             <p className="text-[10px] text-muted-foreground leading-relaxed">Remove branding and get advanced AI features.</p>
-            <Button size="sm" className="w-full mt-3 h-8 text-[10px] font-bold tracking-tight">UPGRADE</Button>
+            <Button size="sm" className="w-full mt-3 h-8 text-[10px] font-bold tracking-tight" asChild>
+              <Link href="/dashboard/subscription">UPGRADE</Link>
+            </Button>
           </div>
           <Button 
             variant="ghost" 
