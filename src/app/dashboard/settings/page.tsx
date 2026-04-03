@@ -19,13 +19,13 @@ export default function SettingsPage() {
   const { user } = useUser()
   const [primaryColor, setPrimaryColor] = useState('#3333CC')
   const [accentColor, setAccentColor] = useState('#1FBAF5')
-  const [websiteUrl, setWebsiteUrl] = useState('https://assistlink.vercel.app')
+  const [websiteUrl, setWebsiteUrl] = useState('https://example.com')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
 
   const orgId = user?.email ? user.email.replace(/\./g, '_') : 'AL-USER-1'
-  const endpointUrl = `https://assistlink.vercel.app/api/widget?id=${orgId}`
+  const endpointUrl = `https://assistlink-bit.vercel.app/api/widget?id=${orgId}`
 
   const handleAiExtract = async () => {
     if (!websiteUrl) {
