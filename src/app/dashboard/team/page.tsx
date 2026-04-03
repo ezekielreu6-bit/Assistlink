@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Search, UserPlus, Mail, Shield, MoreHorizontal, Loader2 } from 'lucide-react'
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
@@ -77,21 +78,21 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Team Management</h1>
-          <p className="text-muted-foreground mt-1">Manage your support agents and administrative staff.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-center sm:text-left">Team Management</h1>
+          <p className="text-sm sm:text-muted-foreground mt-1 text-center sm:text-left">Manage your support agents and administrative staff.</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="rounded-xl gap-2 shadow-lg shadow-primary/20">
+            <Button className="w-full sm:w-auto rounded-xl gap-2 shadow-lg shadow-primary/20">
               <UserPlus className="w-4 h-4" />
               Invite Member
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] rounded-3xl">
+          <DialogContent className="sm:max-w-[425px] rounded-2xl sm:rounded-3xl">
             <DialogHeader>
               <DialogTitle>Invite a teammate</DialogTitle>
               <DialogDescription>
@@ -116,7 +117,7 @@ export default function TeamPage() {
                 <Label htmlFor="role">Role</Label>
                 <select 
                   id="role"
-                  className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full h-11 sm:h-10 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
                 >
@@ -139,83 +140,88 @@ export default function TeamPage() {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+        <div className="relative w-full sm:flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search members..." className="pl-10 h-11 rounded-xl bg-white border-none shadow-sm" />
+          <Input placeholder="Search members..." className="pl-10 h-11 rounded-xl bg-white border-none shadow-sm w-full" />
         </div>
       </div>
 
       <Card className="border-none shadow-sm overflow-hidden rounded-2xl">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="px-6 h-12">Member</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead className="text-right px-6">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
-                  </TableCell>
-                </TableRow>
-              ) : teamMembers?.map((member) => (
-                <TableRow key={member.id} className="group hover:bg-muted/10 transition-colors">
-                  <TableCell className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
-                        <AvatarImage src={`https://picsum.photos/seed/${member.id}/80/80`} />
-                        <AvatarFallback>{member.email?.[0].toUpperCase() || '?'}</AvatarFallback>
-                      </Avatar>
-                      <span className="font-semibold">{member.firstName || member.email?.split('@')[0] || 'New Member'}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm font-medium">
-                    {member.email}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold capitalize">
-                      <Shield className={cn("w-3.5 h-3.5", member.role === 'admin' ? "text-purple-600" : "text-blue-600")} />
-                      {member.role}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={member.status === 'invited' ? 'secondary' : 'default'} 
-                      className={cn(
-                        "rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                        member.status === 'invited' ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
-                      )}
-                    >
-                      {member.status || 'Active'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-medium">
-                    {member.createdAt ? format(member.createdAt.toDate(), 'MMM d, yyyy') : 'Recently'}
-                  </TableCell>
-                  <TableCell className="text-right px-6">
-                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {(!teamMembers || teamMembers.length === 0) && !isLoading && (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground italic text-sm">
-                    No team members found. Start by inviting someone!
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          <ScrollArea className="w-full">
+            <div className="min-w-[800px] w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="px-6 h-12">Member</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Joined</TableHead>
+                    <TableHead className="text-right px-6">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-32 text-center">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                      </TableCell>
+                    </TableRow>
+                  ) : teamMembers?.map((member) => (
+                    <TableRow key={member.id} className="group hover:bg-muted/10 transition-colors">
+                      <TableCell className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+                            <AvatarImage src={`https://picsum.photos/seed/${member.id}/80/80`} />
+                            <AvatarFallback>{member.email?.[0].toUpperCase() || '?'}</AvatarFallback>
+                          </Avatar>
+                          <span className="font-semibold">{member.firstName || member.email?.split('@')[0] || 'New Member'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm font-medium">
+                        {member.email}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-xs font-semibold capitalize">
+                          <Shield className={cn("w-3.5 h-3.5", member.role === 'admin' ? "text-purple-600" : "text-blue-600")} />
+                          {member.role}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={member.status === 'invited' ? 'secondary' : 'default'} 
+                          className={cn(
+                            "rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                            member.status === 'invited' ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
+                          )}
+                        >
+                          {member.status || 'Active'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs font-medium">
+                        {member.createdAt ? format(member.createdAt.toDate(), 'MMM d, yyyy') : 'Recently'}
+                      </TableCell>
+                      <TableCell className="text-right px-6">
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!teamMembers || teamMembers.length === 0) && !isLoading && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-32 text-center text-muted-foreground italic text-sm">
+                        No team members found. Start by inviting someone!
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>

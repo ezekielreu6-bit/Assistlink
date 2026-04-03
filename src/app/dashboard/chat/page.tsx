@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, Suspense } from 'react'
@@ -14,7 +15,7 @@ import {
   Send, 
   Phone, 
   Video, 
-  User, 
+  ArrowLeft, 
   Clock, 
   Paperclip,
   CheckCircle,
@@ -114,7 +115,7 @@ function ChatContent() {
   }
 
   return (
-    <div className="h-[calc(100vh-10rem)] flex flex-col lg:flex-row gap-6 overflow-hidden animate-in slide-in-from-bottom-2 duration-500">
+    <div className="h-[calc(100vh-8rem)] sm:h-[calc(100vh-10rem)] flex flex-col lg:flex-row gap-4 sm:gap-6 overflow-hidden animate-in slide-in-from-bottom-2 duration-500">
       <Card className={cn(
         "w-full lg:w-80 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden shrink-0",
         selectedSessionId && "hidden lg:flex"
@@ -151,7 +152,7 @@ function ChatContent() {
                     </p>
                     {session.status === 'resolved' && <CheckCircle2 className="w-3 h-3 text-green-500" />}
                   </div>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                     {session.updatedAt ? formatDistanceToNow(session.updatedAt.toDate()) : 'Now'}
                   </span>
                 </div>
@@ -171,34 +172,34 @@ function ChatContent() {
 
       {selectedSessionId ? (
         <Card className="flex-1 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden relative">
-          <div className="px-6 py-4 border-b flex items-center justify-between bg-white z-10">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSelectedSessionId(null)}>
-                <User className="w-4 h-4" />
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b flex items-center justify-between bg-white z-10">
+            <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
+              <Button variant="ghost" size="icon" className="lg:hidden shrink-0" onClick={() => setSelectedSessionId(null)}>
+                <ArrowLeft className="w-4 h-4" />
               </Button>
-              <Avatar className="h-10 w-10 ring-2 ring-primary/10">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 ring-2 ring-primary/10">
                 <AvatarFallback>{activeSession?.customerName?.[0] || 'C'}</AvatarFallback>
               </Avatar>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-semibold text-sm">{activeSession?.customerName || 'Anonymous'}</h2>
+                  <h2 className="font-semibold text-sm truncate">{activeSession?.customerName || 'Anonymous'}</h2>
                   <Badge 
                     variant="secondary" 
                     className={cn(
-                      "text-[10px] h-4 uppercase tracking-tighter",
+                      "text-[9px] sm:text-[10px] h-3 sm:h-4 px-1 sm:px-2 uppercase tracking-tighter whitespace-nowrap",
                       activeSession?.status === 'resolved' ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
                     )}
                   >
                     {activeSession?.status || 'Online'}
                   </Badge>
                 </div>
-                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   Real-time session
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-muted-foreground hover:bg-primary/10 hover:text-primary rounded-full">
                 <Phone className="w-4 h-4" />
               </Button>
@@ -207,7 +208,8 @@ function ChatContent() {
               </Button>
               {activeSession?.status !== 'resolved' && (
                 <Button 
-                  className="bg-primary hover:bg-primary/90 text-white gap-2 ml-2 rounded-xl h-9 px-4 shadow-lg shadow-primary/20"
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90 text-white gap-2 ml-1 rounded-xl h-8 sm:h-9 px-2 sm:px-4 shadow-lg shadow-primary/20"
                   onClick={handleResolveSession}
                 >
                   <CheckCircle className="w-4 h-4" />
@@ -217,19 +219,19 @@ function ChatContent() {
             </div>
           </div>
 
-          <ScrollArea className="flex-1 p-6 bg-muted/5">
-            <div className="space-y-6">
+          <ScrollArea className="flex-1 p-4 sm:p-6 bg-muted/5">
+            <div className="space-y-4 sm:space-y-6">
               {messages?.map((msg, idx) => (
                 <div 
                   key={msg.id || idx} 
                   className={cn(
-                    "flex flex-col gap-1 max-w-[85%] sm:max-w-[70%] animate-in fade-in slide-in-from-bottom-2",
+                    "flex flex-col gap-1 max-w-[90%] sm:max-w-[70%] animate-in fade-in slide-in-from-bottom-2",
                     msg.senderType === 'agent' ? "ml-auto items-end" : "items-start"
                   )}
                 >
                   <div 
                     className={cn(
-                      "p-4 rounded-3xl text-sm leading-relaxed shadow-sm",
+                      "p-3 sm:p-4 rounded-2xl sm:rounded-3xl text-xs sm:text-sm leading-relaxed shadow-sm",
                       msg.senderType === 'agent' 
                         ? "bg-primary text-white rounded-tr-none shadow-primary/10" 
                         : "bg-white text-foreground rounded-tl-none border border-border/50"
@@ -237,7 +239,7 @@ function ChatContent() {
                   >
                     {msg.content}
                   </div>
-                  <span className="text-[10px] text-muted-foreground font-medium px-2">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground font-medium px-1">
                     {msg.senderType === 'agent' ? 'You' : (activeSession?.customerName || 'Customer')} • {msg.timestamp ? formatDistanceToNow(msg.timestamp.toDate()) : 'Now'}
                   </span>
                 </div>
@@ -245,45 +247,47 @@ function ChatContent() {
             </div>
           </ScrollArea>
 
-          <div className="p-4 sm:p-6 border-t bg-white space-y-4">
-            <SmartReplies 
-              customerMessage={activeSession?.lastMessage || ''}
-              conversationHistory={messages?.map(m => ({ role: m.senderType === 'agent' ? 'agent' : 'user', message: m.content })) || []}
-              onSelectReply={handleSelectReply}
-            />
+          <div className="p-3 sm:p-6 border-t bg-white space-y-3 sm:space-y-4">
+            <div className="max-w-full overflow-hidden">
+              <SmartReplies 
+                customerMessage={activeSession?.lastMessage || ''}
+                conversationHistory={messages?.map(m => ({ role: m.senderType === 'agent' ? 'agent' : 'user', message: m.content })) || []}
+                onSelectReply={handleSelectReply}
+              />
+            </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <div className="flex-1 relative">
                 <Input 
                   placeholder="Type your reply..." 
-                  className="pr-20 py-7 rounded-2xl border-muted bg-muted/20 focus-visible:ring-primary/20"
+                  className="pr-12 sm:pr-20 py-5 sm:py-7 rounded-xl sm:rounded-2xl border-muted bg-muted/20 focus-visible:ring-primary/20 text-xs sm:text-sm"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                 />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  <Button size="icon" variant="ghost" className="h-10 w-10 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl">
-                    <Paperclip className="w-5 h-5" />
+                <div className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  <Button size="icon" variant="ghost" className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-xl">
+                    <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
                   </Button>
                 </div>
               </div>
               <Button 
                 size="icon" 
-                className="h-14 w-14 rounded-2xl bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+                className="h-10 w-10 sm:h-14 sm:w-14 shrink-0 rounded-xl sm:rounded-2xl bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
                 onClick={handleSendMessage}
               >
-                <Send className="w-6 h-6" />
+                <Send className="w-5 h-5 sm:w-6 sm:h-6" />
               </Button>
             </div>
           </div>
         </Card>
       ) : (
-        <Card className="flex-1 border-none shadow-sm flex flex-col items-center justify-center text-center p-12 rounded-2xl bg-white">
-          <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
-            <MessageSquare className="w-10 h-10 text-primary/40" />
+        <Card className="flex-1 border-none shadow-sm flex flex-col items-center justify-center text-center p-6 sm:p-12 rounded-2xl bg-white">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/5 rounded-full flex items-center justify-center mb-4 sm:mb-6">
+            <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10 text-primary/40" />
           </div>
-          <h2 className="text-xl font-bold mb-2">No conversation selected</h2>
-          <p className="text-muted-foreground max-w-sm">
+          <h2 className="text-lg sm:text-xl font-bold mb-2">No conversation selected</h2>
+          <p className="text-sm text-muted-foreground max-w-sm">
             Choose a customer from the left list to start providing real-time support and AI-powered replies.
           </p>
         </Card>
