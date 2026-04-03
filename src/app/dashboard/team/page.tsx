@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -15,22 +15,20 @@ import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { sendTeamInvitation } from '@/lib/email-action' 
+import { sendTeamInvitation } from '@/app/actions/email' 
 
 export default function TeamPage() {
   const { user } = useUser()
   const db = useFirestore()
   const { toast } = useToast()
-  
+
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('agent')
   const [isInviting, setIsInviting] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  // The Organization ID is tied to the primary account holder
   const orgId = user?.email ? user.email.replace(/\./g, '_') : 'default-org'
 
-  // Query all users belonging to this specific organization
   const teamQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
     return query(
@@ -44,11 +42,11 @@ export default function TeamPage() {
   const handleInvite = async () => {
     if (!inviteEmail || !db || !user || !orgId) return
 
-    // FREE TIER LIMIT: 5 Members
+    // 1. FREE TIER LIMIT CHECK
     if (teamMembers && teamMembers.length >= 5) {
       toast({
         title: "Limit Reached",
-        description: "Free tier is limited to 5 team members. Please upgrade for more seats.",
+        description: "Free tier is limited to 5 team members.",
         variant: "destructive"
       })
       return
@@ -56,31 +54,44 @@ export default function TeamPage() {
 
     setIsInviting(true)
     try {
+      // 2. GENERATE UNIQUE INVITE ID
+      const inviteId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       const inviterName = user.displayName || user.email?.split('@')[0] || 'A Teammate'
-      
-      // 1. Send Email
-      const emailResult = await sendTeamInvitation(inviteEmail, inviteRole, inviterName)
+
+      // 3. SEND STYLED EMAIL WITH UNIQUE LINK
+      const emailResult = await sendTeamInvitation(inviteEmail, inviteRole, inviterName, inviteId)
       if (!emailResult.success) throw new Error("SMTP_ERROR")
 
-      // 2. Save to Firestore (Using Email as ID to prevent duplicates)
+      // 4. SAVE TO INVITATIONS COLLECTION (For the acceptance page to verify)
+      await setDoc(doc(db, 'invitations', inviteId), {
+        email: inviteEmail.toLowerCase().trim(),
+        role: inviteRole,
+        orgId: orgId,
+        inviterName: inviterName,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      })
+
+      // 5. SAVE TO USERS COLLECTION (So they show up as 'invited' in the list)
       const userDocRef = doc(db, 'users', inviteEmail.toLowerCase().trim())
       await setDoc(userDocRef, {
         email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
-        organizationId: orgId, // This links them to your organization
+        organizationId: orgId,
         status: 'invited',
+        inviteId: inviteId, // Link to the invitation
         invitedBy: user.email,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       })
 
-      toast({ title: "Invitation sent", description: `${inviteEmail} has been added to your organization.` })
+      toast({ title: "Invitation sent", description: `Unique invite link sent to ${inviteEmail}.` })
       setInviteEmail('')
       setIsDialogOpen(false)
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message === "SMTP_ERROR" ? "Email failed to send." : "Failed to save member.",
+        description: error.message === "SMTP_ERROR" ? "Email failed to send. Check SMTP config." : "Failed to save invitation.",
         variant: "destructive"
       })
     } finally {
@@ -109,10 +120,10 @@ export default function TeamPage() {
               <DialogDescription>
                 {teamMembers && teamMembers.length >= 5 ? (
                   <span className="text-destructive font-bold flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" /> Limit reached (5/5)
+                    <AlertCircle className="w-4 h-4" /> Seat limit reached (5/5)
                   </span>
                 ) : (
-                  `You have used ${teamMembers?.length || 0} of 5 free seats.`
+                  `You are using ${teamMembers?.length || 0} of 5 free seats.`
                 )}
               </DialogDescription>
             </DialogHeader>
@@ -150,7 +161,7 @@ export default function TeamPage() {
                 className="w-full rounded-xl h-12"
               >
                 {isInviting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Mail className="w-4 h-4 mr-2" />}
-                {isInviting ? "Sending..." : "Send Invitation"}
+                {isInviting ? "Sending..." : "Send Secure Invitation"}
               </Button>
             </DialogFooter>
           </DialogContent>
