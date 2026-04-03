@@ -167,7 +167,7 @@ export default function LoginPage() {
       
       <p className="mt-8 text-sm text-muted-foreground text-center">
         Protected by end-to-end encrypted identity verification.<br/>
-        All logos consistently use <code className="bg-muted px-1 rounded">logo.png</code>.
+        
       </p>
     </div>
   )
