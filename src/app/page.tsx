@@ -4,7 +4,6 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { 
-  MessageSquare, 
   ShieldCheck, 
   Zap, 
   Palette, 
@@ -13,8 +12,7 @@ import {
   Sparkles,
   Layers,
   CheckCircle2,
-  Menu,
-  X
+  Menu
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -257,7 +255,7 @@ export default function LandingPage() {
               <ul className="space-y-2 sm:space-y-4 text-xs sm:text-sm text-muted-foreground">
                 <li><Link href="#features" className="hover:text-primary transition-colors">Chat Widget</Link></li>
                 <li><Link href="/login" className="hover:text-primary transition-colors">Agent Dashboard</Link></li>
-                <li><Link href="/dashboard/settings" className="hover:text-primary transition-colors">Integrations</Link></li>
+                <li><Link href="/login" className="hover:text-primary transition-colors">Integrations</Link></li>
               </ul>
             </div>
             <div>
