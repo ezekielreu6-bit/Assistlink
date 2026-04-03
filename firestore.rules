@@ -5,9 +5,8 @@ service cloud.firestore {
     /**
      * ASSISTLINK SECURITY ARCHITECTURE
      * 
-     * Core Philosophy:
-     * This ruleset implements an Organization-Based Multi-tenancy model. Access is strictly 
-     * partitioned by `organizationId`. User profiles are keyed by email address as requested.
+     * Dashboard: Restricted to authenticated organization members.
+     * Widget: Publicly accessible for chat sessions and messages.
      */
 
     // --- Helper Functions ---
@@ -42,12 +41,10 @@ service cloud.firestore {
 
     /**
      * @description Rules for the User profiles. 
-     * Profiles are keyed by email. Members can see others in the same org.
      */
     match /users/{userEmail} {
       allow get: if isOwner(userEmail) || isOrgMember(resource.data.organizationId);
-      
-      // Allow listing users if filtering by your own organizationId
+
       allow list: if isSignedIn() && (
         isOwner(userEmail) || 
         getUserData().organizationId == resource.data.organizationId
@@ -63,43 +60,47 @@ service cloud.firestore {
     }
 
     /**
-     * @description Top-level organization document. Access restricted to members.
+     * @description Organization documents and sub-collections.
      */
     match /organizations/{organizationId} {
+      // Dashboard access
       allow get, list: if isOrgMember(organizationId);
       allow create: if isSignedIn();
       allow update: if isOrgMember(organizationId);
       allow delete: if isOrgAdmin(organizationId);
 
       match /chatWidgetConfigurations/{widgetId} {
-        allow get, list: if isOrgMember(organizationId);
-        allow create, update, delete: if isOrgMember(organizationId);
+        allow read, write: if isOrgMember(organizationId);
       }
 
       match /customers/{customerId} {
-        allow get, list: if isOrgMember(organizationId);
-        allow create: if isSignedIn() && request.resource.data.organizationId == organizationId;
-        allow update, delete: if isOrgMember(organizationId);
+        allow read, write: if isOrgMember(organizationId);
       }
 
+      /**
+       * CHAT SESSIONS & MESSAGES (WIDGET ACCESS)
+       * 
+       * We allow 'true' for create/get/list here so that website visitors 
+       * who are not logged in can still use the chat widget.
+       */
       match /chatSessions/{sessionId} {
-        allow get, list: if isOrgMember(organizationId);
-        allow create: if isSignedIn() && request.resource.data.organizationId == organizationId;
-        allow update, delete: if isOrgMember(organizationId);
+        // Allow public visitors to start a session, and members to manage them
+        allow create, get: if true; 
+        allow list, update, delete: if isOrgMember(organizationId);
 
         match /chatMessages/{messageId} {
-          allow get, list: if isOrgMember(organizationId);
-          allow create: if isSignedIn() && request.resource.data.organizationId == organizationId;
+          // Allow public visitors to read/send messages, and members to manage them
+          allow list, get, create: if true;
           allow update, delete: if isOrgMember(organizationId);
         }
       }
 
       match /agentSmartReplies/{replyId} {
-        allow get, list, create, update, delete: if isOrgMember(organizationId);
+        allow read, write: if isOrgMember(organizationId);
       }
 
       match /emailNotificationSettings/{settingId} {
-        allow get, list, create, update, delete: if isOrgMember(organizationId);
+        allow read, write: if isOrgMember(organizationId);
       }
     }
 
