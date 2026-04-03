@@ -16,7 +16,7 @@ import { collection, query, where, doc, setDoc, deleteDoc, serverTimestamp } fro
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { sendTeamInvitation } from '@/app/actions/email' 
+import { sendTeamInvitation } from '@/lib/email-action' 
 
 export default function TeamPage() {
   const { user } = useUser()
