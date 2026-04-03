@@ -272,11 +272,8 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="pt-8 sm:pt-12 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-6">
-            <p className="text-[10px] sm:text-xs text-muted-foreground">© 2024 AssistLink Inc. All rights reserved.</p>
-            <div className="flex gap-4 sm:gap-6">
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors"><X className="w-4 h-4 sm:w-5 sm:h-5" /></Link>
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors"><MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" /></Link>
-            </div>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">© 2026 AssistLink Inc. All rights reserved.</p>
+         
           </div>
         </div>
       </footer>
