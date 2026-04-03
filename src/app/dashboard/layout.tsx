@@ -125,7 +125,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar className="border-r border-border">
         <SidebarHeader className="p-6">
           <Link href="/" className="flex items-center gap-2 group">
-            <Image src="/logo.png" alt="AssistLink" width={32} height={32} className="rounded-lg group-hover:rotate-12 transition-transform shadow-sm" />
+            <Image src="https://assistlink-bit.vercel.app/logo.png" alt="AssistLink" width={32} height={32} className="rounded-lg group-hover:rotate-12 transition-transform shadow-sm" />
             <span className="font-bold text-xl text-foreground">AssistLink</span>
           </Link>
         </SidebarHeader>
