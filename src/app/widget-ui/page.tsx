@@ -2,10 +2,11 @@
 
 import { useSearchParams } from 'next/navigation'
 import { ChatPreview } from '@/components/chat-preview'
+import { Suspense } from 'react'
 
-export default function WidgetUIPage() {
+
+function WidgetContent() {
   const searchParams = useSearchParams()
-  
   
   const orgId = searchParams.get('id')
   const primaryColor = `#${searchParams.get('primary') || '3333CC'}`
@@ -20,5 +21,14 @@ export default function WidgetUIPage() {
         welcomeMessage="Hi! How can we help you today?"
       />
     </div>
+  )
+}
+
+
+export default function WidgetUIPage() {
+  return (
+    <Suspense fallback={<div className="h-screen w-full bg-transparent" />}>
+      <WidgetContent />
+    </Suspense>
   )
 }
