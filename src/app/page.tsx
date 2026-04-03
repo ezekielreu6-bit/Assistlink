@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react'
@@ -40,7 +39,7 @@ export default function LandingPage() {
             <Image src="/logo.png" alt="AssistLink Logo" width={32} height={32} className="rounded-lg shadow-lg shadow-primary/20 sm:w-10 sm:h-10" />
             <span className="font-bold text-lg sm:text-2xl tracking-tight text-[#3333CC]">AssistLink</span>
           </Link>
-          
+
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 lg:gap-8">
             {navLinks.map((link) => (
@@ -108,8 +107,12 @@ export default function LandingPage() {
 
           <div className="container mx-auto relative">
             <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8">
-              <Badge variant="outline" className="bg-white border-primary/20 text-primary px-3 py-1 sm:px-4 sm:py-1.5 rounded-full font-bold text-[10px] sm:text-xs uppercase tracking-widest shadow-sm">
-                
+              <div className="flex justify-center">
+                <Badge variant="outline" className="bg-white border-primary/20 text-primary px-3 py-1 sm:px-4 sm:py-1.5 rounded-full font-bold text-[10px] sm:text-xs uppercase tracking-widest shadow-sm">
+                  ✨ New: AI Smart Suggestions are here
+                </Badge>
+              </div>
+
               <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold tracking-tight text-foreground leading-[1.2] sm:leading-[1.1]">
                 Modern chat for <span className="text-primary italic">modern</span> teams.
               </h1>
@@ -127,7 +130,7 @@ export default function LandingPage() {
                   Watch demo
                 </Button>
               </div>
-              
+
               {/* Product Preview */}
               <div className="mt-12 sm:mt-20 relative p-2 sm:p-4 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white shadow-2xl shadow-primary/10 border border-white max-w-5xl mx-auto overflow-hidden">
                 <Image 
@@ -136,7 +139,6 @@ export default function LandingPage() {
                   width={1200}
                   height={800}
                   className="rounded-[1.2rem] sm:rounded-[2rem] border border-border shadow-inner"
-                  data-ai-hint="software dashboard"
                 />
               </div>
             </div>
@@ -149,7 +151,7 @@ export default function LandingPage() {
             <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
               <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-4 sm:mb-6 tracking-tight">Everything you need to support better.</h2>
               <p className="text-muted-foreground text-base sm:text-lg leading-relaxed">
-                We've built the essential tools for customer success, powered by the latest AI technologies.
+                We&apos;ve built the essential tools for customer success, powered by the latest AI technologies.
               </p>
             </div>
 
@@ -216,7 +218,7 @@ export default function LandingPage() {
             <div className="bg-[#3333CC] rounded-[2rem] sm:rounded-[3rem] p-8 sm:p-24 text-center text-white relative overflow-hidden shadow-2xl shadow-primary/40">
               <div className="absolute top-[-50px] left-[-50px] w-64 h-64 sm:w-96 sm:h-96 bg-white/10 rounded-full blur-3xl" />
               <div className="absolute bottom-[-50px] right-[-50px] w-64 h-64 sm:w-96 sm:h-96 bg-accent/20 rounded-full blur-3xl" />
-              
+
               <div className="relative z-10 max-w-3xl mx-auto space-y-6 sm:space-y-8">
                 <h2 className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight">Ready to delight your customers?</h2>
                 <p className="text-base sm:text-xl text-white/80 leading-relaxed">
@@ -253,25 +255,22 @@ export default function LandingPage() {
             <div>
               <h4 className="font-bold text-sm sm:text-base mb-4 sm:mb-6">Product</h4>
               <ul className="space-y-2 sm:space-y-4 text-xs sm:text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-primary transition-colors">Chat Widget</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Agent Dashboard</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Integrations</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">API Docs</Link></li>
+                <li><Link href="#features" className="hover:text-primary transition-colors">Chat Widget</Link></li>
+                <li><Link href="/login" className="hover:text-primary transition-colors">Agent Dashboard</Link></li>
+                <li><Link href="/dashboard/settings" className="hover:text-primary transition-colors">Integrations</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold text-sm sm:text-base mb-4 sm:mb-6">Company</h4>
               <ul className="space-y-2 sm:space-y-4 text-xs sm:text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-primary transition-colors">About Us</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Blog</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Careers</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/about" className="hover:text-primary transition-colors">About Us</Link></li>
+                <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
               </ul>
             </div>
           </div>
           <div className="pt-8 sm:pt-12 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-6">
             <p className="text-[10px] sm:text-xs text-muted-foreground">© 2026 AssistLink Inc. All rights reserved.</p>
-         
           </div>
         </div>
       </footer>
