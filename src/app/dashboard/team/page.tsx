@@ -9,29 +9,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu'
-import { 
-  Search, 
-  UserPlus, 
-  Mail, 
-  Shield, 
-  MoreHorizontal, 
-  Loader2, 
-  Calendar, 
-  AlertCircle, 
-  Trash2
-} from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Search, UserPlus, Mail, Shield, MoreHorizontal, Loader2, Trash2, AlertCircle } from 'lucide-react'
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, where, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { sendTeamInvitation } from '@/lib/email-action' 
+import { sendTeamInvitation } from '@/app/actions/email' 
 
 export default function TeamPage() {
   const { user } = useUser()
@@ -47,62 +32,42 @@ export default function TeamPage() {
 
   const teamQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
-    return query(
-      collection(db, 'users'),
-      where('organizationId', '==', orgId)
-    )
+    return query(collection(db, 'users'), where('organizationId', '==', orgId))
   }, [db, orgId])
 
   const { data: teamMembers, isLoading } = useCollection(teamQuery)
 
-  // --- FIXED DELETE MEMBER LOGIC ---
   const handleDeleteMember = async (memberId: string, inviteId?: string) => {
     if (!db || !orgId) return
-
     if (memberId === user?.email) {
-      toast({ title: "Action Denied", description: "You cannot remove yourself.", variant: "destructive" })
+      toast({ title: "Error", description: "You cannot delete yourself.", variant: "destructive" })
       return
     }
-
-    const confirmDelete = window.confirm(`Are you sure you want to remove ${memberId}?`)
-    if (!confirmDelete) return
+    if (!window.confirm(`Remove ${memberId} from team?`)) return
 
     try {
-      // Use memberId because that is the Firestore Document Name (the email)
       await deleteDoc(doc(db, 'users', memberId))
-
-      if (inviteId) {
-        await deleteDoc(doc(db, 'invitations', inviteId))
-      }
-
-      toast({ title: "Member removed", description: "Successfully updated team." })
-    } catch (error: any) {
+      if (inviteId) await deleteDoc(doc(db, 'invitations', inviteId))
+      toast({ title: "Member removed" })
+    } catch (error) {
       console.error("Delete error:", error)
-      toast({ 
-        title: "Delete Failed", 
-        description: error.code === 'permission-denied' 
-          ? "You don't have permission. Are you an Admin?" 
-          : "An error occurred.", 
-        variant: "destructive" 
-      })
+      toast({ title: "Delete failed", variant: "destructive" })
     }
   }
 
   const handleInvite = async () => {
     if (!inviteEmail || !db || !user || !orgId) return
-    if (teamMembers && teamMembers.length >= 5) {
-      toast({ title: "Limit Reached", description: "Free tier is limited to 5 members.", variant: "destructive" })
-      return
-    }
-
+    
     setIsInviting(true)
     try {
-      const inviteId = Math.random().toString(36).substring(2, 15);
-      const inviterName = user.displayName || user.email?.split('@')[0] || 'A Teammate'
+      const inviteId = Math.random().toString(36).substring(2, 15)
+      const inviterName = user.displayName || user.email?.split('@')[0] || 'Admin'
 
+      // 1. Send Email
       const emailResult = await sendTeamInvitation(inviteEmail, inviteRole, inviterName, inviteId)
-      if (!emailResult.success) throw new Error("SMTP_ERROR")
+      if (!emailResult.success) throw new Error("EMAIL_FAILED")
 
+      // 2. Save Invitation
       await setDoc(doc(db, 'invitations', inviteId), {
         email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
@@ -112,9 +77,8 @@ export default function TeamPage() {
         createdAt: serverTimestamp()
       })
 
-      // Set document ID as the email
-      const userDocRef = doc(db, 'users', inviteEmail.toLowerCase().trim())
-      await setDoc(userDocRef, {
+      // 3. Save User Placeholder
+      await setDoc(doc(db, 'users', inviteEmail.toLowerCase().trim()), {
         email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
         organizationId: orgId,
@@ -125,11 +89,18 @@ export default function TeamPage() {
         updatedAt: serverTimestamp(),
       })
 
-      toast({ title: "Invitation sent" })
+      toast({ title: "Invitation sent successfully" })
       setInviteEmail('')
       setIsDialogOpen(false)
     } catch (error: any) {
-      toast({ title: "Error", description: "Failed to send invitation.", variant: "destructive" })
+      console.error("FULL INVITE ERROR:", error) // CHECK YOUR BROWSER CONSOLE FOR THIS
+      toast({ 
+        title: "Error", 
+        description: error.message === "EMAIL_FAILED" 
+          ? "Could not send email." 
+          : "Database error. Check your Firestore rules or Admin status.", 
+        variant: "destructive" 
+      })
     } finally {
       setIsInviting(false)
     }
@@ -138,64 +109,51 @@ export default function TeamPage() {
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="text-center sm:text-left">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Team Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your support agents.</p>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#3333CC]">Team Management</h1>
+          <p className="text-sm text-muted-foreground">Manage your organization members.</p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto rounded-xl gap-2 h-11">
-              <UserPlus className="w-4 h-4" />
-              Invite Member
+            <Button className="rounded-xl gap-2 bg-[#3333CC] hover:bg-[#3333CC]/90 shadow-lg shadow-primary/20">
+              <UserPlus className="w-4 h-4" /> Invite Member
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] w-[92vw] rounded-2xl p-6">
+          <DialogContent className="sm:max-w-[425px] rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Invite a teammate</DialogTitle>
-              <DialogDescription>
-                {teamMembers && teamMembers.length >= 5 ? "Limit reached (5/5)" : `Using ${teamMembers?.length || 0} of 5 seats.`}
-              </DialogDescription>
+              <DialogTitle>Invite Teammate</DialogTitle>
+              <DialogDescription>Sent to: {inviteEmail || '...'}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label>Email address</Label>
-                <Input 
-                  placeholder="teammate@company.com" 
-                  className="rounded-xl"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
+                <Label>Email</Label>
+                <Input placeholder="email@company.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="rounded-xl" />
               </div>
               <div className="space-y-2">
                 <Label>Role</Label>
-                <select 
-                  className="w-full h-11 px-3 rounded-xl border bg-background text-sm"
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                >
+                <select className="w-full h-10 rounded-xl border bg-background px-3" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
                   <option value="agent">Support Agent</option>
                   <option value="admin">Administrator</option>
                 </select>
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleInvite} disabled={isInviting || !inviteEmail} className="w-full rounded-xl h-12">
-                {isInviting ? <Loader2 className="animate-spin mr-2" /> : <Mail className="mr-2" />}
-                Send Secure Invitation
+              <Button onClick={handleInvite} disabled={isInviting || !inviteEmail} className="w-full rounded-xl h-12 bg-[#3333CC]">
+                {isInviting ? <Loader2 className="animate-spin mr-2" /> : <Mail className="mr-2 w-4 h-4" />}
+                Send Invitation
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card className="hidden md:block border-none shadow-sm overflow-hidden rounded-2xl">
+      <Card className="border-none shadow-sm overflow-hidden rounded-2xl bg-white">
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30">
-                <TableHead className="px-6 h-12">Member</TableHead>
-                <TableHead>Email</TableHead>
+            <TableHeader className="bg-muted/30">
+              <TableRow>
+                <TableHead className="px-6">Member</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right px-6">Actions</TableHead>
@@ -203,32 +161,35 @@ export default function TeamPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="h-32 text-center"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="h-32 text-center"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : teamMembers?.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell className="px-6 py-4 font-semibold">
-                    {member.firstName || member.email?.split('@')[0]}
+                <TableRow key={member.id} className="hover:bg-muted/5">
+                  <TableCell className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+                        <AvatarFallback className="bg-primary/10 text-primary font-bold">{member.email?.[0].toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm">{member.firstName || member.email?.split('@')[0]}</span>
+                        <span className="text-[10px] text-muted-foreground">{member.email}</span>
+                      </div>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{member.email}</TableCell>
-                  <TableCell className="capitalize">{member.role}</TableCell>
+                  <TableCell className="capitalize text-xs font-medium">{member.role}</TableCell>
                   <TableCell>
-                    <Badge variant={member.status === 'invited' ? 'secondary' : 'default'}>
+                    <Badge className={cn("rounded-full px-3 text-[10px] uppercase font-bold", 
+                      member.status === 'invited' ? "bg-amber-100 text-amber-700 hover:bg-amber-100" : "bg-green-100 text-green-700 hover:bg-green-100")}>
                       {member.status || 'Active'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right px-6">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="rounded-full"><MoreHorizontal className="w-4 h-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-xl">
-                        <DropdownMenuItem 
-                          className="text-destructive cursor-pointer"
-                          // Use onSelect for Radix UI Dropdowns
-                          onSelect={() => handleDeleteMember(member.id, member.inviteId)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Remove Member
+                        <DropdownMenuItem className="text-destructive cursor-pointer" onSelect={() => handleDeleteMember(member.id, member.inviteId)}>
+                          <Trash2 className="w-4 h-4 mr-2" /> Remove Member
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -239,33 +200,6 @@ export default function TeamPage() {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-4">
-        {teamMembers?.map((member) => (
-          <Card key={member.id} className="border-none shadow-sm rounded-2xl p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex flex-col">
-                <span className="font-bold">{member.email}</span>
-                <span className="text-xs text-muted-foreground capitalize">{member.role}</span>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="rounded-xl">
-                  <DropdownMenuItem 
-                    className="text-destructive"
-                    onSelect={() => handleDeleteMember(member.id, member.inviteId)}
-                  >
-                    Remove Member
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </Card>
-        ))}
-      </div>
     </div>
   )
 }
