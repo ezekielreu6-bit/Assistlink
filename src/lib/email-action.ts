@@ -2,7 +2,7 @@
 
 import nodemailer from 'nodemailer';
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://assistlink.vercel.app';
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://assistlink-bit.vercel.app';
 const logoUrl = `${appUrl}/logo.png`;
 
 /**
@@ -25,7 +25,7 @@ export async function sendChatNotification(toEmail: string, customerName: string
   const chatLink = `${appUrl}/dashboard/chat?session=${sessionId}`;
 
   const info = await transporter.sendMail({
-    from: '"AssistLink Notifications" <notifications@assistlink.com>',
+    from: '"AssistLink Notifications" <ezekielojochenemi1@gmail.com>',
     to: toEmail,
     subject: `New Message from ${customerName}`,
     text: `You have a new support request from ${customerName}. View it here: ${chatLink}`,
@@ -50,7 +50,7 @@ export async function sendChatNotification(toEmail: string, customerName: string
         <hr style="border: 0; border-top: 1px solid #eee; margin: 40px 0;">
         
         <div style="text-align: center; color: #999; font-size: 12px;">
-          <p style="margin: 0;">© 2024 AssistLink Inc. All rights reserved.</p>
+          <p style="margin: 0;">© 2026 AssistLink Inc. All rights reserved.</p>
         </div>
       </div>
     `,
@@ -95,7 +95,7 @@ export async function sendTeamInvitation(toEmail: string, role: string, inviterN
         <hr style="border: 0; border-top: 1px solid #eee; margin: 40px 0;">
         
         <div style="text-align: center; color: #999; font-size: 12px;">
-          <p style="margin: 0;">© 2024 AssistLink Inc. All rights reserved.</p>
+          <p style="margin: 0;">© 2026 AssistLink Inc. All rights reserved.</p>
         </div>
       </div>
     `,
