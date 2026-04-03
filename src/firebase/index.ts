@@ -39,7 +39,7 @@ export function getSdks(firebaseApp: FirebaseApp) {
     firestore: getFirestore(firebaseApp)
   };
 }
-
+export const db = getFirestore(app); 
 export * from './provider';
 export * from './client-provider';
 export * from './firestore/use-collection';
