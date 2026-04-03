@@ -5,101 +5,78 @@ import nodemailer from 'nodemailer';
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://assistlink-bit.vercel.app';
 const logoUrl = `${appUrl}/logo.png`;
 
-/**
- * Creates a reusable transporter object using SMTP transport.
- */
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, 
-  auth: {
-    user: process.env.SMTP_USER || 'demo@ethereal.email',
-    pass: process.env.SMTP_PASS || 'demo_pass',
-  },
-});
-
-/**
- * Sends a notification email to a user when a new message is received.
- */
-export async function sendChatNotification(toEmail: string, customerName: string, sessionId: string) {
-  const chatLink = `${appUrl}/dashboard/chat?session=${sessionId}`;
-
-  const info = await transporter.sendMail({
-    from: '"AssistLink Notifications" <ezekielojochenemi1@gmail.com>',
-    to: toEmail,
-    subject: `New Message from ${customerName}`,
-    text: `You have a new support request from ${customerName}. View it here: ${chatLink}`,
-    html: `
-      <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px; border: 1px solid #f0f0f0; border-radius: 24px; background-color: #ffffff;">
-        <div style="text-align: center; margin-bottom: 32px;">
-          <img src="${logoUrl}" alt="AssistLink Logo" style="width: 48px; height: 48px; border-radius: 12px; margin-bottom: 16px;">
-          <h1 style="color: #3333CC; margin: 0; font-size: 24px; font-weight: 700;">New Support Request</h1>
-        </div>
-        
-        <div style="background-color: #f8f8ff; padding: 24px; border-radius: 16px; margin-bottom: 32px; text-align: center;">
-          <p style="color: #444; font-size: 16px; margin-bottom: 8px;"><strong>${customerName}</strong> is waiting for a response.</p>
-          <p style="color: #666; font-size: 14px; margin: 0;">A new conversation has been initiated through your website widget.</p>
-        </div>
-
-        <div style="text-align: center;">
-          <a href="${chatLink}" style="display: inline-block; background-color: #3333CC; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(51, 51, 204, 0.2);">
-            View Conversation
-          </a>
-        </div>
-
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 40px 0;">
-        
-        <div style="text-align: center; color: #999; font-size: 12px;">
-          <p style="margin: 0;">© 2026 AssistLink Inc. All rights reserved.</p>
-        </div>
-      </div>
-    `,
+// Create transporter logic
+const createTransporter = () => {
+  // If you are using Gmail, the host should be smtp.gmail.com
+  // If you are using a professional service (Resend, SendGrid), use their host
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com', 
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: true, // true for 465, false for 587
+    auth: {
+      user: process.env.SMTP_USER, // Your email
+      pass: process.env.SMTP_PASS, // Your App Password
+    },
   });
+};
 
-  return { success: true, messageId: info.messageId };
+export async function sendChatNotification(toEmail: string, customerName: string, sessionId: string) {
+  try {
+    const transporter = createTransporter();
+    const chatLink = `${appUrl}/dashboard/chat?session=${sessionId}`;
+
+    const info = await transporter.sendMail({
+      // IMPORTANT: The "from" MUST be the same email as SMTP_USER
+      from: `"AssistLink" <${process.env.SMTP_USER}>`,
+      to: toEmail,
+      subject: `New Message from ${customerName}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px;">
+          <h2 style="color: #3333CC;">New Support Request</h2>
+          <p><strong>${customerName}</strong> is waiting for a response on your website.</p>
+          <div style="margin: 30px 0;">
+            <a href="${chatLink}" style="background-color: #3333CC; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+              View Conversation
+            </a>
+          </div>
+          <p style="color: #999; font-size: 12px;">Sent via AssistLink</p>
+        </div>
+      `,
+    });
+
+    console.log("Email sent: %s", info.messageId);
+    return { success: true };
+  } catch (error) {
+    console.error("Email Error:", error);
+    return { success: false, error: "Failed to send email" };
+  }
 }
 
-/**
- * Sends a team invitation email to a new member.
- */
 export async function sendTeamInvitation(toEmail: string, role: string, inviterName: string) {
-  const loginLink = `${appUrl}/login`;
+  try {
+    const transporter = createTransporter();
+    const loginLink = `${appUrl}/login`;
 
-  const info = await transporter.sendMail({
-    from: '"AssistLink Team" <team@assistlink.com>',
-    to: toEmail,
-    subject: `You've been invited to join ${inviterName}'s team on AssistLink`,
-    text: `You've been invited as a ${role}. Join your team here: ${loginLink}`,
-    html: `
-      <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px; border: 1px solid #f0f0f0; border-radius: 24px; background-color: #ffffff;">
-        <div style="text-align: center; margin-bottom: 32px;">
-          <img src="${logoUrl}" alt="AssistLink Logo" style="width: 48px; height: 48px; border-radius: 12px; margin-bottom: 16px;">
-          <h1 style="color: #3333CC; margin: 0; font-size: 24px; font-weight: 700;">Team Invitation</h1>
+    const info = await transporter.sendMail({
+      from: `"AssistLink Team" <${process.env.SMTP_USER}>`,
+      to: toEmail,
+      subject: `Invitation to join ${inviterName}'s team`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px;">
+          <h2 style="color: #3333CC;">Team Invitation</h2>
+          <p><strong>${inviterName}</strong> invited you to join their team as a <strong>${role}</strong>.</p>
+          <div style="margin: 30px 0;">
+            <a href="${loginLink}" style="background-color: #3333CC; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+              Accept Invitation
+            </a>
+          </div>
         </div>
-        
-        <div style="background-color: #f0f7ff; padding: 24px; border-radius: 16px; margin-bottom: 32px; text-align: center;">
-          <p style="color: #444; font-size: 16px; margin-bottom: 8px;"><strong>${inviterName}</strong> has invited you to join their support team on AssistLink.</p>
-          <p style="color: #666; font-size: 14px; margin: 0;">You'll be joining with the role of <strong>${role}</strong>.</p>
-        </div>
+      `,
+    });
 
-        <div style="text-align: center;">
-          <a href="${loginLink}" style="display: inline-block; background-color: #3333CC; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(51, 51, 204, 0.2);">
-            Accept Invitation
-          </a>
-        </div>
-
-        <p style="color: #666; font-size: 13px; text-align: center; margin-top: 32px;">
-          If you don't have an account, you can create one for free using this email address.
-        </p>
-
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 40px 0;">
-        
-        <div style="text-align: center; color: #999; font-size: 12px;">
-          <p style="margin: 0;">© 2026 AssistLink Inc. All rights reserved.</p>
-        </div>
-      </div>
-    `,
-  });
-
-  return { success: true, messageId: info.messageId };
+    return { success: true };
+  } catch (error) {
+    console.error("Invitation Error:", error);
+    return { success: false };
+  }
 }
