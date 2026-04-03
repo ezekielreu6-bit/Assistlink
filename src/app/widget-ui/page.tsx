@@ -13,6 +13,7 @@ function WidgetContent() {
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
 
+ 
   const orgId = searchParams?.get('id') || 'default'
   const primaryColor = `#${searchParams?.get('primary') || '3333CC'}`
   const accentColor = `#${searchParams?.get('accent') || '1FBAF5'}`
@@ -31,36 +32,58 @@ function WidgetContent() {
 
   useEffect(() => {
     if (!isMounted || !sessionId || !orgId || !db) return
-    const q = query(
-      collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages'),
-      orderBy('createdAt', 'asc')
-    )
+
+  
+    const colRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages')
+    
+    
+    const q = query(colRef, orderBy('createdAt', 'asc'))
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({
         role: doc.data().role,
         content: doc.data().content
       }))
-      setMessages(msgs.length > 0 ? msgs : [{ role: 'assistant', content: "Hi! How can we help you today?" }])
-    }, (err) => console.error("Firestore Error:", err))
+      
+      console.log("Messages received from Firestore:", msgs.length)
+      
+      if (msgs.length > 0) {
+        setMessages(msgs)
+      } else {
+        setMessages([{ role: 'assistant', content: "Hi! How can we help you today?" }])
+      }
+    }, (err) => {
+      console.error("Firestore Listen Error:", err.message)
+    })
+
     return () => unsubscribe()
   }, [isMounted, sessionId, orgId])
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || !sessionId || !db) return
+    
+    
+    const userMsg = { role: 'user', content };
+    setMessages(prev => [...prev, userMsg]);
     setLoading(true)
+
     try {
-      await addDoc(collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages'), {
+      
+      const colRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages')
+      await addDoc(colRef, {
         role: 'user',
         content,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp() 
       })
+
+      
       await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: content, orgId, sessionId })
       })
     } catch (error) {
-      console.error("Send Error:", error)
+      console.error("Failed to send:", error)
     } finally {
       setLoading(false)
     }
@@ -74,11 +97,9 @@ function WidgetContent() {
         primaryColor={primaryColor} 
         accentColor={accentColor}
         companyName="Support"
-        welcomeMessage="Hi! How can we help you today?"
         messages={messages} 
         onSendMessage={handleSendMessage}
         isTyping={loading}
-        hideCloseButton={true} // We use the external button to close
       />
     </div>
   )
