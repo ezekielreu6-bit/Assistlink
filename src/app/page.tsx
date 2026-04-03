@@ -109,9 +109,7 @@ export default function LandingPage() {
           <div className="container mx-auto relative">
             <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8">
               <Badge variant="outline" className="bg-white border-primary/20 text-primary px-3 py-1 sm:px-4 sm:py-1.5 rounded-full font-bold text-[10px] sm:text-xs uppercase tracking-widest shadow-sm">
-                <Sparkles className="w-3 h-3 mr-2" />
-                AI-Powered Support Platform
-              </Badge>
+                
               <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold tracking-tight text-foreground leading-[1.2] sm:leading-[1.1]">
                 Modern chat for <span className="text-primary italic">modern</span> teams.
               </h1>
@@ -133,7 +131,7 @@ export default function LandingPage() {
               {/* Product Preview */}
               <div className="mt-12 sm:mt-20 relative p-2 sm:p-4 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white shadow-2xl shadow-primary/10 border border-white max-w-5xl mx-auto overflow-hidden">
                 <Image 
-                  src="https://picsum.photos/seed/hero-dashboard/1200/800"
+                  src="https://ik.imagekit.io/Homa/InShot_20260403_151340794.jpg"
                   alt="AssistLink Dashboard"
                   width={1200}
                   height={800}
