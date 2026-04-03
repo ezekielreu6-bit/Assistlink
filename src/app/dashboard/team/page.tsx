@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react'
@@ -16,7 +15,8 @@ import { collection, query, where, addDoc, serverTimestamp } from 'firebase/fire
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { sendTeamInvitation } from '@/lib/email-action'
+// Ensure this path matches where you saved the email action
+import { sendTeamInvitation } from '@/app/actions/email' 
 
 export default function TeamPage() {
   const { user } = useUser()
@@ -27,6 +27,7 @@ export default function TeamPage() {
   const [isInviting, setIsInviting] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
+  // Consistent orgId logic (matches your widget and rules)
   const orgId = user?.email ? user.email.replace(/\./g, '_') : 'default-org'
 
   const teamQuery = useMemoFirebase(() => {
@@ -40,35 +41,50 @@ export default function TeamPage() {
   const { data: teamMembers, isLoading } = useCollection(teamQuery)
 
   const handleInvite = async () => {
-    if (!inviteEmail || !db || !user || !orgId) return
+    if (!inviteEmail || !db || !user || !orgId) {
+       toast({ title: "Error", description: "Missing required information.", variant: "destructive" })
+       return
+    }
+    
     setIsInviting(true)
     try {
-      await sendTeamInvitation(
-        inviteEmail, 
-        inviteRole, 
-        user.displayName || user.email?.split('@')[0] || 'A Teammate'
-      )
+      // 1. Call the Server Action to send the actual email
+      const inviterName = user.displayName || user.email?.split('@')[0] || 'A Teammate'
+      const emailResult = await sendTeamInvitation(inviteEmail, inviteRole, inviterName)
 
+      if (!emailResult.success) {
+        throw new Error("SMTP_ERROR")
+      }
+
+      // 2. If email sent successfully, record the invitation in Firestore
       await addDoc(collection(db, 'users'), {
-        email: inviteEmail,
+        email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
         organizationId: orgId,
         status: 'invited',
+        invitedBy: user.email,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       })
-      
+
       toast({
         title: "Invitation sent",
-        description: `We've sent an invitation to ${inviteEmail}.`
+        description: `An email has been sent to ${inviteEmail}.`
       })
+      
+      // Reset UI
       setInviteEmail('')
       setIsDialogOpen(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Invite error:", error)
+      
+      const isSmtpError = error.message === "SMTP_ERROR"
+      
       toast({
-        title: "Error",
-        description: "Failed to send invitation. Please check your SMTP settings.",
+        title: "Invitation Failed",
+        description: isSmtpError 
+          ? "The email could not be sent. Please check your SMTP/Gmail App Password settings in Vercel." 
+          : "We couldn't save the invitation. Please try again.",
         variant: "destructive"
       })
     } finally {
@@ -83,7 +99,7 @@ export default function TeamPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Team Management</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your support agents and administrative staff.</p>
         </div>
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="w-full sm:w-auto rounded-xl gap-2 shadow-lg shadow-primary/20 h-11">
@@ -105,6 +121,7 @@ export default function TeamPage() {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input 
                     id="email" 
+                    type="email"
                     placeholder="teammate@company.com" 
                     className="pl-10 rounded-xl"
                     value={inviteEmail}
@@ -131,7 +148,7 @@ export default function TeamPage() {
                 disabled={isInviting || !inviteEmail}
                 className="w-full rounded-xl h-12"
               >
-                {isInviting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {isInviting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Mail className="w-4 h-4 mr-2" />}
                 {isInviting ? "Sending..." : "Send Invitation"}
               </Button>
             </DialogFooter>
@@ -139,6 +156,7 @@ export default function TeamPage() {
         </Dialog>
       </div>
 
+      {/* ... rest of your table UI code ... */}
       <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
         <div className="relative w-full sm:flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -146,8 +164,7 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {/* Desktop Table View */}
-      <Card className="hidden md:block border-none shadow-sm overflow-hidden rounded-2xl">
+      <Card className="border-none shadow-sm overflow-hidden rounded-2xl">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -208,73 +225,10 @@ export default function TeamPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {(!teamMembers || teamMembers.length === 0) && !isLoading && (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground italic text-sm">
-                    No team members found. Start by inviting someone!
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-
-      {/* Mobile Card View - Optimized for no horizontal scroll */}
-      <div className="md:hidden space-y-4">
-        {isLoading ? (
-          <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-        ) : teamMembers?.map((member) => (
-          <Card key={member.id} className="border-none shadow-sm rounded-2xl overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm">
-                    <AvatarImage src={`https://picsum.photos/seed/${member.id}/80/80`} />
-                    <AvatarFallback>{member.email?.[0].toUpperCase() || '?'}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-sm truncate">{member.firstName || member.email?.split('@')[0] || 'New Member'}</span>
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
-                      <Mail className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{member.email}</span>
-                    </span>
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 shrink-0">
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="flex items-center justify-between pt-3 border-t border-muted">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
-                    <Shield className={cn("w-3 h-3", member.role === 'admin' ? "text-purple-600" : "text-blue-600")} />
-                    {member.role}
-                  </div>
-                  <Badge 
-                    variant={member.status === 'invited' ? 'secondary' : 'default'} 
-                    className={cn(
-                      "rounded-full px-2 py-0 text-[8px] font-bold uppercase tracking-widest",
-                      member.status === 'invited' ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
-                    )}
-                  >
-                    {member.status || 'Active'}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
-                  <Calendar className="w-3 h-3" />
-                  {member.createdAt ? format(member.createdAt.toDate(), 'MMM d, yy') : 'Now'}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {(!teamMembers || teamMembers.length === 0) && !isLoading && (
-          <div className="text-center py-12 text-muted-foreground italic text-sm">
-            No team members found.
-          </div>
-        )}
-      </div>
     </div>
   )
 }
