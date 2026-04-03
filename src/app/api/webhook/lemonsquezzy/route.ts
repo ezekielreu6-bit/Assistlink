@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     await updateDoc(doc(db, 'organizations', orgId), {
       plan: status === 'active' ? 'pro' : 'free',
       lemonsqueezyId: payload.data.id,
-      // If variantId matches your "Add 10 members" product:
+      
       extraSeats: variantId === 'YOUR_VARIANT_ID' ? 10 : 0 
     });
   }
