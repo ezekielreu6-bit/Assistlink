@@ -9,13 +9,30 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Search, UserPlus, Mail, Shield, MoreHorizontal, Loader2, Calendar, AlertCircle } from 'lucide-react'
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu'
+import { 
+  Search, 
+  UserPlus, 
+  Mail, 
+  Shield, 
+  MoreHorizontal, 
+  Loader2, 
+  Calendar, 
+  AlertCircle, 
+  Trash2,
+  UserMinus
+} from 'lucide-react'
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
-import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { sendTeamInvitation } from '@/lib/email-action' 
+import { sendTeamInvitation } from '@/app/actions/email' 
 
 export default function TeamPage() {
   const { user } = useUser()
@@ -39,30 +56,49 @@ export default function TeamPage() {
 
   const { data: teamMembers, isLoading } = useCollection(teamQuery)
 
+  // --- DELETE MEMBER LOGIC ---
+  const handleDeleteMember = async (memberEmail: string, inviteId?: string) => {
+    if (!db || !orgId) return
+    
+    // Safety check: Don't let user delete themselves easily here
+    if (memberEmail === user?.email) {
+      toast({ title: "Action Denied", description: "You cannot remove yourself from the team page.", variant: "destructive" })
+      return
+    }
+
+    if (!confirm(`Are you sure you want to remove ${memberEmail} from your team?`)) return
+
+    try {
+      // 1. Remove from users collection
+      await deleteDoc(doc(db, 'users', memberEmail))
+
+      // 2. Remove from invitations if it was a pending invite
+      if (inviteId) {
+        await deleteDoc(doc(db, 'invitations', inviteId))
+      }
+
+      toast({ title: "Member removed", description: "The user has been removed from your organization." })
+    } catch (error) {
+      console.error("Delete error:", error)
+      toast({ title: "Error", description: "Failed to remove member.", variant: "destructive" })
+    }
+  }
+
   const handleInvite = async () => {
     if (!inviteEmail || !db || !user || !orgId) return
-
-    // 1. FREE TIER LIMIT CHECK
     if (teamMembers && teamMembers.length >= 5) {
-      toast({
-        title: "Limit Reached",
-        description: "Free tier is limited to 5 team members.",
-        variant: "destructive"
-      })
+      toast({ title: "Limit Reached", description: "Free tier is limited to 5 team members.", variant: "destructive" })
       return
     }
 
     setIsInviting(true)
     try {
-      // 2. GENERATE UNIQUE INVITE ID
       const inviteId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       const inviterName = user.displayName || user.email?.split('@')[0] || 'A Teammate'
 
-      // 3. SEND STYLED EMAIL WITH UNIQUE LINK
       const emailResult = await sendTeamInvitation(inviteEmail, inviteRole, inviterName, inviteId)
       if (!emailResult.success) throw new Error("SMTP_ERROR")
 
-      // 4. SAVE TO INVITATIONS COLLECTION (For the acceptance page to verify)
       await setDoc(doc(db, 'invitations', inviteId), {
         email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
@@ -72,28 +108,23 @@ export default function TeamPage() {
         createdAt: serverTimestamp()
       })
 
-      // 5. SAVE TO USERS COLLECTION (So they show up as 'invited' in the list)
       const userDocRef = doc(db, 'users', inviteEmail.toLowerCase().trim())
       await setDoc(userDocRef, {
         email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
         organizationId: orgId,
         status: 'invited',
-        inviteId: inviteId, // Link to the invitation
+        inviteId: inviteId,
         invitedBy: user.email,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       })
 
-      toast({ title: "Invitation sent", description: `Unique invite link sent to ${inviteEmail}.` })
+      toast({ title: "Invitation sent", description: `Invite link sent to ${inviteEmail}.` })
       setInviteEmail('')
       setIsDialogOpen(false)
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message === "SMTP_ERROR" ? "Email failed to send. Check SMTP config." : "Failed to save invitation.",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: "Failed to send invitation.", variant: "destructive" })
     } finally {
       setIsInviting(false)
     }
@@ -101,6 +132,7 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-8">
+      {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="text-center sm:text-left">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Team Management</h1>
@@ -168,6 +200,7 @@ export default function TeamPage() {
         </Dialog>
       </div>
 
+      {/* Search Bar */}
       <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
         <div className="relative w-full sm:flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -220,7 +253,22 @@ export default function TeamPage() {
                     {member.createdAt ? format(member.createdAt.toDate(), 'MMM d, yyyy') : 'Recently'}
                   </TableCell>
                   <TableCell className="text-right px-6">
-                    <Button variant="ghost" size="icon" className="rounded-full"><MoreHorizontal className="w-4 h-4" /></Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="rounded-xl border-none shadow-xl">
+                        <DropdownMenuItem 
+                          className="text-destructive focus:text-destructive cursor-pointer gap-2"
+                          onClick={() => handleDeleteMember(member.email, member.inviteId)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Remove Member
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -229,7 +277,7 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {/* MOBILE CARD VIEW (Restored Design) */}
+      {/* MOBILE CARD VIEW */}
       <div className="md:hidden space-y-4">
         {isLoading ? (
           <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
@@ -250,10 +298,25 @@ export default function TeamPage() {
                     </span>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 shrink-0">
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 shrink-0">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="rounded-xl border-none shadow-xl">
+                    <DropdownMenuItem 
+                      className="text-destructive focus:text-destructive cursor-pointer gap-2"
+                      onClick={() => handleDeleteMember(member.email, member.inviteId)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove Member
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
+
               <div className="flex items-center justify-between pt-3 border-t border-muted">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
