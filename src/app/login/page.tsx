@@ -120,10 +120,10 @@ export default function LoginPage() {
               </CardHeader>
               <CardContent className="space-y-4 px-6 pb-6 pt-0">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name">Site Name</Label>
                   <Input 
                     id="name" 
-                    placeholder="Alex Carter" 
+                    placeholder="AssistLink" 
                     required 
                     className="rounded-xl"
                     value={signupName}
@@ -135,7 +135,7 @@ export default function LoginPage() {
                   <Input 
                     id="signup-email" 
                     type="email" 
-                    placeholder="name@company.com" 
+                    placeholder="name@assistlink.com" 
                     required 
                     className="rounded-xl"
                     value={signupEmail}
