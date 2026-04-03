@@ -17,7 +17,7 @@ import { formatDistanceToNow } from 'date-fns'
 export default function CustomersPage() {
   const { user } = useUser()
   const db = useFirestore()
-  const orgId = user?.email ? user.email.replace(/\./g, '_') : null
+  const orgId = user?.email ? user.email.replace(/\./g, '_') : 'default-org'
 
   const customersQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
@@ -32,9 +32,9 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-center sm:text-left">Customers</h1>
-          <p className="text-sm sm:text-muted-foreground mt-1 text-center sm:text-left">View and manage all customer identities interacting with your widget.</p>
+        <div className="text-center sm:text-left">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Customers</h1>
+          <p className="text-sm text-muted-foreground mt-1">View and manage all customer identities interacting with your widget.</p>
         </div>
         <Button className="w-full sm:w-auto rounded-xl gap-2 shadow-lg shadow-primary/20">
           <UserPlus className="w-4 h-4" />
@@ -82,8 +82,8 @@ export default function CustomersPage() {
                             <AvatarImage src={`https://picsum.photos/seed/${customer.id}/80/80`} />
                             <AvatarFallback>{customer.name?.[0] || 'C'}</AvatarFallback>
                           </Avatar>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-sm">{customer.name || 'Anonymous User'}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-sm truncate">{customer.name || 'Anonymous User'}</span>
                             <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">ID: {customer.id.slice(0, 8)}</span>
                           </div>
                         </div>

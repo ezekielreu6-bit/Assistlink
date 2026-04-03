@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { ChatPreview } from '@/components/chat-preview'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Wand2, Copy, Check, Loader2, Palette, Terminal, Globe, Link as LinkIcon } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { extractWebsiteColors } from '@/ai/flows/website-color-extractor-flow'
@@ -79,25 +80,28 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-6xl mx-auto animate-in fade-in duration-500 pb-12 px-4 sm:px-0">
+    <div className="space-y-6 sm:space-y-8 max-w-6xl mx-auto animate-in fade-in duration-500 pb-12">
       <div className="text-center sm:text-left">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Widget Configuration</h1>
-        <p className="text-sm sm:text-muted-foreground mt-1">Manage your widget endpoint and visual styling.</p>
+        <p className="text-sm text-muted-foreground mt-1">Manage your widget endpoint and visual styling.</p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-12 items-start">
         <div className="lg:col-span-7 space-y-6">
           <Tabs defaultValue="installation" className="w-full">
-            <TabsList className="bg-muted/50 p-1 rounded-xl mb-4 w-full justify-start overflow-x-auto">
-              <TabsTrigger value="installation" className="rounded-lg px-4 sm:px-6">
-                <Terminal className="w-4 h-4 mr-2" />
-                Installation
-              </TabsTrigger>
-              <TabsTrigger value="design" className="rounded-lg px-4 sm:px-6">
-                <Palette className="w-4 h-4 mr-2" />
-                Design
-              </TabsTrigger>
-            </TabsList>
+            <ScrollArea className="w-full">
+              <TabsList className="bg-muted/50 p-1 rounded-xl mb-4 inline-flex min-w-full sm:min-w-0">
+                <TabsTrigger value="installation" className="rounded-lg px-6 flex-1 sm:flex-none">
+                  <Terminal className="w-4 h-4 mr-2" />
+                  Installation
+                </TabsTrigger>
+                <TabsTrigger value="design" className="rounded-lg px-6 flex-1 sm:flex-none">
+                  <Palette className="w-4 h-4 mr-2" />
+                  Design
+                </TabsTrigger>
+              </TabsList>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
 
             <TabsContent value="installation" className="space-y-6">
               <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
@@ -111,7 +115,7 @@ export default function SettingsPage() {
                 <CardContent className="p-4 sm:p-6">
                   <div className="flex gap-2">
                     <Input readOnly value={endpointUrl} className="font-mono text-[10px] sm:text-xs bg-muted/20 h-10 sm:h-12" />
-                    <Button variant="outline" size="icon" className="h-10 w-10 sm:h-12 sm:w-12" onClick={() => {
+                    <Button variant="outline" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 shrink-0" onClick={() => {
                       navigator.clipboard.writeText(endpointUrl)
                       toast({ title: "Endpoint Copied" })
                     }}>
@@ -135,7 +139,7 @@ export default function SettingsPage() {
                       variant="outline" 
                       size="sm" 
                       onClick={copyEmbed}
-                      className="mt-4 sm:mt-0 sm:absolute sm:top-4 sm:right-4 bg-white/80 backdrop-blur rounded-xl shadow-sm border-none w-full sm:w-auto"
+                      className="mt-4 sm:mt-0 sm:absolute sm:top-4 sm:right-4 bg-white/80 backdrop-blur rounded-xl shadow-sm border-none w-full sm:w-auto h-10 sm:h-9"
                     >
                       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       <span className="ml-2">{copied ? "Copied" : "Copy"}</span>
@@ -213,11 +217,11 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-3 pt-2 sm:pt-4">
+                  <div className="space-y-3 pt-2">
                     <Label className="text-sm font-semibold">Welcome Message</Label>
                     <Textarea 
                       placeholder="Hi! How can we help you today?" 
-                      className="rounded-2xl min-h-[100px] sm:min-h-[120px] bg-muted/20 border-none p-4"
+                      className="rounded-2xl min-h-[100px] bg-muted/20 border-none p-4"
                     />
                   </div>
                 </CardContent>
@@ -227,9 +231,9 @@ export default function SettingsPage() {
         </div>
 
         <div className="lg:col-span-5 lg:sticky lg:top-24">
-          <div className="p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-border/50 shadow-xl shadow-primary/5">
+          <div className="p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-white border border-border/50 shadow-xl shadow-primary/5">
             <p className="text-[10px] font-bold text-center uppercase tracking-[0.2em] text-muted-foreground mb-4 sm:mb-8">Live Preview</p>
-            <div className="flex justify-center transform scale-90 sm:scale-100">
+            <div className="flex justify-center scale-90 sm:scale-100">
               <ChatPreview 
                 primaryColor={primaryColor} 
                 accentColor={accentColor}

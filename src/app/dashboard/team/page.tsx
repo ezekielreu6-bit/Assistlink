@@ -28,7 +28,7 @@ export default function TeamPage() {
   const [isInviting, setIsInviting] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const orgId = user?.email ? user.email.replace(/\./g, '_') : null
+  const orgId = user?.email ? user.email.replace(/\./g, '_') : 'default-org'
 
   const teamQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
@@ -80,9 +80,9 @@ export default function TeamPage() {
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-center sm:text-left">Team Management</h1>
-          <p className="text-sm sm:text-muted-foreground mt-1 text-center sm:text-left">Manage your support agents and administrative staff.</p>
+        <div className="text-center sm:text-left">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Team Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage your support agents and administrative staff.</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -92,7 +92,7 @@ export default function TeamPage() {
               Invite Member
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] rounded-2xl sm:rounded-3xl">
+          <DialogContent className="sm:max-w-[425px] w-[95vw] rounded-2xl sm:rounded-3xl">
             <DialogHeader>
               <DialogTitle>Invite a teammate</DialogTitle>
               <DialogDescription>
@@ -117,7 +117,7 @@ export default function TeamPage() {
                 <Label htmlFor="role">Role</Label>
                 <select 
                   id="role"
-                  className="w-full h-11 sm:h-10 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full h-11 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
                 >
