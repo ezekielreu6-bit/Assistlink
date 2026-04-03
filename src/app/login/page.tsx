@@ -6,7 +6,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/firebase'
-import { initiateEmailSignIn, initiateEmailSignUp } from '@/firebase/non-blocking-login'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth'
 
 export default function LoginPage() {
   const auth = useAuth()
@@ -32,13 +32,11 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      initiateEmailSignIn(auth, loginEmail, loginPassword)
-      // Note: non-blocking login doesn't await, so we rely on the provider to redirect or handle state
-      // In a real app, we'd use onAuthStateChanged in a layout to redirect.
-      toast({ title: "Logging in...", description: "Redirecting to dashboard." })
-      setTimeout(() => router.push('/dashboard'), 1500)
+      await signInWithEmailAndPassword(auth, loginEmail, loginPassword)
+      toast({ title: "Welcome back!", description: "Redirecting to your dashboard." })
+      router.push('/dashboard')
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" })
+      toast({ title: "Login Failed", description: error.message, variant: "destructive" })
     } finally {
       setLoading(false)
     }
@@ -48,21 +46,23 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      initiateEmailSignUp(auth, signupEmail, signupPassword)
+      const userCredential = await createUserWithEmailAndPassword(auth, signupEmail, signupPassword)
+      await updateProfile(userCredential.user, { displayName: signupName })
+      
       toast({ title: "Account created", description: "Welcome to AssistLink!" })
-      setTimeout(() => router.push('/dashboard'), 1500)
+      router.push('/dashboard')
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" })
+      toast({ title: "Sign up Failed", description: error.message, variant: "destructive" })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#F0F0F4] flex flex-col items-center justify-center p-6">
-      <Link href="/" className="mb-8 flex items-center gap-2">
-        <Image src="/logo.png" alt="AssistLink" width={40} height={40} className="rounded-xl shadow-lg" />
-        <span className="font-bold text-2xl tracking-tight text-primary">AssistLink</span>
+    <div className="min-h-screen bg-[#F0F0F4] flex flex-col items-center justify-center p-4 sm:p-6">
+      <Link href="/" className="mb-6 sm:mb-8 flex items-center gap-2 group">
+        <Image src="/logo.png" alt="AssistLink" width={40} height={40} className="rounded-xl shadow-lg transition-transform group-hover:scale-105" />
+        <span className="font-bold text-xl sm:text-2xl tracking-tight text-primary">AssistLink</span>
       </Link>
 
       <Card className="w-full max-w-md border-none shadow-2xl rounded-3xl overflow-hidden">
@@ -74,11 +74,11 @@ export default function LoginPage() {
           
           <TabsContent value="login">
             <form onSubmit={handleLogin}>
-              <CardHeader>
+              <CardHeader className="p-6">
                 <CardTitle>Welcome Back</CardTitle>
                 <CardDescription>Enter your credentials to access your support dashboard.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 px-6 pb-6 pt-0">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input 
@@ -86,6 +86,7 @@ export default function LoginPage() {
                     type="email" 
                     placeholder="name@company.com" 
                     required 
+                    className="rounded-xl"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                   />
@@ -96,14 +97,15 @@ export default function LoginPage() {
                     id="password" 
                     type="password" 
                     required 
+                    className="rounded-xl"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                   />
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button className="w-full h-12 rounded-xl" type="submit" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <CardFooter className="px-6 pb-6">
+                <Button className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20" type="submit" disabled={loading}>
+                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Login to Dashboard
                 </Button>
               </CardFooter>
@@ -112,17 +114,18 @@ export default function LoginPage() {
 
           <TabsContent value="signup">
             <form onSubmit={handleSignup}>
-              <CardHeader>
+              <CardHeader className="p-6">
                 <CardTitle>Create Account</CardTitle>
                 <CardDescription>Get started with AssistLink's intelligent support tools.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 px-6 pb-6 pt-0">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input 
                     id="name" 
                     placeholder="Alex Carter" 
                     required 
+                    className="rounded-xl"
                     value={signupName}
                     onChange={(e) => setSignupName(e.target.value)}
                   />
@@ -134,6 +137,7 @@ export default function LoginPage() {
                     type="email" 
                     placeholder="name@company.com" 
                     required 
+                    className="rounded-xl"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
                   />
@@ -144,14 +148,15 @@ export default function LoginPage() {
                     id="signup-password" 
                     type="password" 
                     required 
+                    className="rounded-xl"
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
                   />
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button className="w-full h-12 rounded-xl" type="submit" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <CardFooter className="px-6 pb-6">
+                <Button className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20" type="submit" disabled={loading}>
+                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Create Free Account
                 </Button>
               </CardFooter>
@@ -160,8 +165,9 @@ export default function LoginPage() {
         </Tabs>
       </Card>
       
-      <p className="mt-8 text-sm text-muted-foreground">
-        Protected by end-to-end encrypted identity verification.
+      <p className="mt-8 text-sm text-muted-foreground text-center">
+        Protected by end-to-end encrypted identity verification.<br/>
+        All logos consistently use <code className="bg-muted px-1 rounded">logo.png</code>.
       </p>
     </div>
   )
