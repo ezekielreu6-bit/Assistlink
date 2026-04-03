@@ -9,5 +9,5 @@ export const ai = genkit({
     }),
   ],
   
-  model: gemini25flashpreview092025,
+  model: gemini25flashpreview,
 });
