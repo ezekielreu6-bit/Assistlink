@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { extractWebsiteColors } from '@/ai/flows/extract-website-colors-flow'
+import { extractWebsiteColors } from '@/ai/flows/website-color-extractor-flow'
 
 export async function POST(req: Request) {
   try {
