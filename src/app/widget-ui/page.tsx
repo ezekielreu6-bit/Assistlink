@@ -13,6 +13,10 @@ function WidgetContent() {
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
 
+  // NEW: Lead form state (moved up from ChatPreview)
+  const [showLeadForm, setShowLeadForm] = useState(true)
+  const [customerInfo, setCustomerInfo] = useState<{ name: string; email: string } | null>(null)
+
   // Widget Customization
   const [settings, setSettings] = useState({
     companyName: 'Support',
@@ -21,7 +25,7 @@ function WidgetContent() {
   })
 
   const orgId = searchParams?.get('id') || 'default'
-  const domain = searchParams?.get('domain') || window.location.hostname.replace(/[^a-zA-Z0-9]/g, '_') || 'default'
+  const domain = searchParams?.get('domain') || window.location.hostname.replace(/[^a2A-Z0-9]/g, '_') || 'default'
 
   const primaryColor = `#${searchParams?.get('primary') || '3333CC'}`
   const accentColor = `#${searchParams?.get('accent') || '1FBAF5'}`
@@ -62,8 +66,8 @@ function WidgetContent() {
     let sId = localStorage.getItem(sessionKey)
     if (!sId) {
       sId = `sess_\( {Date.now().toString(36)} \){Math.random().toString(36).substring(2)}`
-      localStorage.setItem(sessionKey, sId)
     }
+    localStorage.setItem(sessionKey, sId)
     setSessionId(sId)
   }, [isMounted, orgId, domain])
 
@@ -86,8 +90,14 @@ function WidgetContent() {
     return () => unsubscribe()
   }, [isMounted, sessionId, orgId, settings.welcomeMessage])
 
+  // NEW: Lead form callback
+  const handleLeadFormSubmit = (info: { name: string; email: string }) => {
+    setShowLeadForm(false)
+    setCustomerInfo(info)
+  }
+
   // Handle Send Message - Now supports customer info
-  const handleSendMessage = async (content: string, customerInfo?: { name: string; email: string }) => {
+  const handleSendMessage = async (content: string, customerInfoFromChild?: { name: string; email: string }) => {
     if (!content.trim() || !sessionId || !db) return
 
     setLoading(true)
@@ -95,12 +105,15 @@ function WidgetContent() {
     try {
       const colRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages')
 
+      // Use info from child (first message) or stored info
+      const finalInfo = customerInfoFromChild || customerInfo
+
       await addDoc(colRef, {
         role: 'user',
         content: content.trim(),
         createdAt: serverTimestamp(),
-        customerName: customerInfo?.name || null,
-        customerEmail: customerInfo?.email || null,
+        customerName: finalInfo?.name || null,
+        customerEmail: finalInfo?.email || null,
       })
 
       // Call backend
@@ -111,8 +124,8 @@ function WidgetContent() {
           message: content.trim(), 
           orgId, 
           sessionId,
-          customerName: customerInfo?.name,
-          customerEmail: customerInfo?.email
+          customerName: finalInfo?.name,
+          customerEmail: finalInfo?.email
         })
       })
     } catch (error) {
@@ -135,6 +148,9 @@ function WidgetContent() {
         messages={messages} 
         onSendMessage={handleSendMessage}
         isTyping={loading}
+        // NEW: Controlled lead form props
+        showLeadForm={showLeadForm}
+        onLeadFormSubmit={handleLeadFormSubmit}
       />
     </div>
   )
@@ -144,6 +160,5 @@ export default function WidgetUIPage() {
   return (
     <Suspense fallback={<div className="w-full h-screen bg-transparent" />}>
       <WidgetContent />
-    </Suspense>
   )
 }
