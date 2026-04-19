@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUser } from '@/firebase'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
+import { ChatPreview } from '@/components/chat-preview'   // ← Make sure this import exists
 
 const COMMON_COLORS = [
   '#3333CC', '#1FBAF5', '#7C3AED', '#F43F5E', '#10B981',
@@ -36,8 +37,10 @@ export default function SettingsPage() {
 
   const orgId = user?.email ? user.email.replace(/\./g, '_') : null
 
-  // Fixed widget URL (was broken with template literal)
-  const widgetUrl = `https://assistlink-phi.vercel.app/widget?id=\( {orgId}&primary= \){primaryColor.replace('#', '')}&accent=${accentColor.replace('#', '')}`
+  // Correct widget URL (fixed template literal)
+  const widgetUrl = orgId 
+    ? `https://assistlink-phi.vercel.app/widget?id=\( {orgId}&primary= \){primaryColor.replace('#', '')}&accent=${accentColor.replace('#', '')}`
+    : ''
 
   // Load settings from Firestore
   useEffect(() => {
@@ -105,7 +108,7 @@ export default function SettingsPage() {
     }
   }
 
-  // AI Brand Color Extraction → Now calls secure API route
+  // AI Brand Color Extraction
   const handleExtractColors = async () => {
     if (!websiteUrl.trim()) {
       toast({
@@ -154,7 +157,6 @@ export default function SettingsPage() {
     }
   }
 
-  // Color suggestions dropdown
   const getColorSuggestions = (value: string) => {
     if (!value) return COMMON_COLORS
     return COMMON_COLORS.filter(c => c.toLowerCase().includes(value.toLowerCase()))
@@ -211,12 +213,23 @@ export default function SettingsPage() {
     </div>
   )
 
-  const embedCode = `<!-- AssistLink Chat Widget -->
+  const embedCode = widgetUrl 
+    ? `<!-- AssistLink Chat Widget -->
 <iframe 
   src="${widgetUrl}"
   style="position: fixed; bottom: 20px; right: 20px; width: 380px; height: 620px; border: none; z-index: 999999; border-radius: 24px; box-shadow: 0 20px 60px -15px rgba(0,0,0,0.35);"
   allow="clipboard-write">
 </iframe>`
+    : '<!-- Widget URL not ready yet. Save your settings first. -->'
+
+  // Show loading while determining user/org
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#3333CC]" />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 pb-20">
@@ -327,6 +340,10 @@ export default function SettingsPage() {
 
                   <Button 
                     onClick={() => {
+                      if (embedCode.includes('Widget URL')) {
+                        toast({ title: "Save settings first" })
+                        return
+                      }
                       navigator.clipboard.writeText(embedCode)
                       toast({ title: "✅ Copied to clipboard" })
                     }}
@@ -342,7 +359,7 @@ export default function SettingsPage() {
           </Tabs>
         </div>
 
-        {/* Live Preview */}
+        {/* Live Preview - Safe rendering */}
         <div className="lg:col-span-5 lg:sticky lg:top-8">
           <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-white">
             <CardHeader className="border-b bg-muted/30">
@@ -356,7 +373,7 @@ export default function SettingsPage() {
                 <ChatPreview
                   primaryColor={primaryColor}
                   accentColor={accentColor}
-                  companyName={companyName}
+                  companyName={companyName || 'Support'}
                   welcomeMessage={welcomeMessage}
                   showBranding={showBranding}
                 />
