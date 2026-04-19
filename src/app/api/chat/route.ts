@@ -99,7 +99,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. Save user message with customer info
+    // 5. Save user message with customer info (if provided)
     await addDoc(messagesRef, {
       role: 'user',
       content: trimmedMessage,
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
       customerEmail: customerEmail || null,
     });
 
-    // 6. Update session metadata
+    // 6. Update session metadata + store customer info
     const sessionRef = doc(db, 'organizations', orgId, 'chatSessions', sessionId);
     await updateDoc(sessionRef, {
       lastMessage: trimmedMessage,
