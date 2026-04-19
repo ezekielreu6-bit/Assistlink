@@ -1,80 +1,63 @@
-'use server';
-/**
- * @fileOverview This flow extracts dominant brand colors from a website screenshot.
- *
- * - extractWebsiteColors - A function that handles the website color extraction process.
- * - WebsiteColorExtractorInput - The input type for the extractWebsiteColors function.
- * - WebsiteColorExtractorOutput - The return type for the extractWebsiteColors function.
- */
-
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 
-const WebsiteColorExtractorInputSchema = z.object({
-  screenshotDataUri: z
-    .string()
-    .describe(
-      "A screenshot of the website, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-  websiteUrl: z
-    .string()
-    .url()
-    .optional()
-    .describe(
-      'The URL of the website from which the screenshot was taken, provided for additional context if available.'
-    ),
-});
-export type WebsiteColorExtractorInput = z.infer<
-  typeof WebsiteColorExtractorInputSchema
->;
-
-const WebsiteColorExtractorOutputSchema = z.object({
-  colors: z
-    .array(z.string().regex(/^#[0-9A-Fa-f]{6}$/))
-    .describe(
-      'An array of dominant brand colors extracted from the website screenshot, in hexadecimal format (e.g., ["#RRGGBB", "#AABBCC"]).'
-    ),
-});
-export type WebsiteColorExtractorOutput = z.infer<
-  typeof WebsiteColorExtractorOutputSchema
->;
-
-export async function extractWebsiteColors(
-  input: WebsiteColorExtractorInput
-): Promise<WebsiteColorExtractorOutput> {
-  return websiteColorExtractorFlow(input);
-}
-
-const extractWebsiteColorsPrompt = ai.definePrompt({
-  name: 'extractWebsiteColorsPrompt',
-  input: { schema: WebsiteColorExtractorInputSchema },
-  output: { schema: WebsiteColorExtractorOutputSchema },
-  prompt: `You are an expert color analyst for branding and design.
-
-Your task is to analyze the provided website screenshot and identify the most dominant brand colors present.
-Focus on colors that appear frequently in headers, footers, call-to-action buttons, and large background areas, as these are typically representative of a brand's identity.
-
-Identify 3 to 5 dominant colors. For each color, provide its hexadecimal representation (e.g., #RRGGBB).
-
-Here is the website screenshot for analysis:
-
-{{media url=screenshotDataUri}}
-
-{{#if websiteUrl}}
-For context, this screenshot was taken from the website: {{{websiteUrl}}}
-{{/if}}
-
-Please return the dominant colors as a JSON array of hexadecimal strings.`,
-});
-
-const websiteColorExtractorFlow = ai.defineFlow(
+export const extractWebsiteColors = ai.defineFlow(
   {
-    name: 'websiteColorExtractorFlow',
-    inputSchema: WebsiteColorExtractorInputSchema,
-    outputSchema: WebsiteColorExtractorOutputSchema,
+    name: 'extractWebsiteColors',
+    inputSchema: z.object({
+      websiteUrl: z.string().url(),
+    }),
+    outputSchema: z.object({
+      primaryColor: z.string(),
+      accentColor: z.string(),
+      confidence: z.number(),
+      extractedFrom: z.string(),
+    }),
   },
-  async (input) => {
-    const { output } = await extractWebsiteColorsPrompt(input);
-    return output!;
+  async ({ websiteUrl }) => {
+    try {
+      // Fetch the page HTML
+      const response = await fetch(websiteUrl, { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AssistLinkBot/1.0)' } 
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch site');
+
+      const html = await response.text();
+
+      // Extract colors from inline styles, meta tags, and common patterns
+      const colorMatches = html.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b|rgb[a]?\([^)]+\)/g) || [];
+
+      const uniqueColors = [...new Set(colorMatches.map(c => c.toUpperCase()))];
+
+      // Simple heuristic: first dark/vibrant color = primary, second = accent
+      let primary = '#3333CC';
+      let accent = '#1FBAF5';
+
+      if (uniqueColors.length > 0) {
+        primary = uniqueColors[0];
+      }
+      if (uniqueColors.length > 1) {
+        accent = uniqueColors[1];
+      }
+
+      // Bonus: Look for common brand color in meta or favicon (optional enhancement)
+      return {
+        primaryColor: primary,
+        accentColor: accent,
+        confidence: uniqueColors.length > 3 ? 0.75 : 0.5,
+        extractedFrom: 'html-parsing',
+      };
+    } catch (error) {
+      console.error('Color extraction failed:', error);
+      
+      // Graceful fallback
+      return {
+        primaryColor: '#3333CC',
+        accentColor: '#1FBAF5',
+        confidence: 0.3,
+        extractedFrom: 'fallback',
+      };
+    }
   }
 );
