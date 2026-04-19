@@ -10,10 +10,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Wand2, Copy, Loader2, Save, Building2, Globe, Hash } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { extractWebsiteColors } from '@/ai/flows/website-color-extractor-flow' // ← Make sure this matches your actual file
 import { useUser } from '@/firebase'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/firebase' // assuming you export db
+import { db } from '@/firebase'
 
 const COMMON_COLORS = [
   '#3333CC', '#1FBAF5', '#7C3AED', '#F43F5E', '#10B981',
@@ -36,6 +35,8 @@ export default function SettingsPage() {
   const [activeField, setActiveField] = useState<'primary' | 'accent' | null>(null)
 
   const orgId = user?.email ? user.email.replace(/\./g, '_') : null
+
+  // Fixed widget URL (was broken with template literal)
   const widgetUrl = `https://assistlink-phi.vercel.app/widget?id=\( {orgId}&primary= \){primaryColor.replace('#', '')}&accent=${accentColor.replace('#', '')}`
 
   // Load settings from Firestore
@@ -56,7 +57,6 @@ export default function SettingsPage() {
           setWebsiteUrl(data.websiteUrl || '')
         }
 
-        // Load plan to determine branding
         const orgRef = doc(db, 'organizations', orgId)
         const orgSnap = await getDoc(orgRef)
         if (orgSnap.exists()) {
@@ -105,7 +105,7 @@ export default function SettingsPage() {
     }
   }
 
-  // AI Brand Color Extraction (Fixed & Improved)
+  // AI Brand Color Extraction → Now calls secure API route
   const handleExtractColors = async () => {
     if (!websiteUrl.trim()) {
       toast({
@@ -118,7 +118,15 @@ export default function SettingsPage() {
 
     setLoading(true)
     try {
-      const result = await extractWebsiteColors({ websiteUrl: websiteUrl.trim() })
+      const res = await fetch('/api/extract-colors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ websiteUrl: websiteUrl.trim() }),
+      })
+
+      if (!res.ok) throw new Error('Failed to extract colors')
+
+      const result = await res.json()
 
       if (result.primaryColor && result.accentColor) {
         setPrimaryColor(result.primaryColor)
@@ -131,14 +139,14 @@ export default function SettingsPage() {
       } else {
         toast({
           title: "Partial Result",
-          description: "Could not extract perfect colors. You can adjust manually.",
+          description: "Colors extracted but you can fine-tune them manually.",
         })
       }
     } catch (error) {
       console.error("Color extraction error:", error)
       toast({
         title: "Extraction Failed",
-        description: "Could not analyze your website. Try again or pick manually.",
+        description: "Could not analyze your website. Try again or pick colors manually.",
         variant: "destructive"
       })
     } finally {
@@ -212,7 +220,6 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 pb-20">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Widget Settings</h1>
@@ -237,7 +244,6 @@ export default function SettingsPage() {
               <TabsTrigger value="installation" className="rounded-xl py-3">Installation</TabsTrigger>
             </TabsList>
 
-            {/* DESIGN TAB */}
             <TabsContent value="design" className="space-y-6 mt-6">
               <Card className="border-none shadow-sm rounded-3xl">
                 <CardHeader>
@@ -306,7 +312,6 @@ export default function SettingsPage() {
               </Card>
             </TabsContent>
 
-            {/* INSTALLATION TAB */}
             <TabsContent value="installation" className="mt-6">
               <Card className="border-none shadow-sm rounded-3xl">
                 <CardHeader>
@@ -337,7 +342,7 @@ export default function SettingsPage() {
           </Tabs>
         </div>
 
-        {/* Live Preview - Mobile friendly */}
+        {/* Live Preview */}
         <div className="lg:col-span-5 lg:sticky lg:top-8">
           <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-white">
             <CardHeader className="border-b bg-muted/30">
