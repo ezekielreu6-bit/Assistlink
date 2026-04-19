@@ -36,7 +36,7 @@ export function ChatPreview({
   const [inputValue, setInputValue] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
-  const [showLeadForm, setShowLeadForm] = useState(true) // Show on first interaction
+  const [showLeadForm, setShowLeadForm] = useState(true) // Always show first for new session
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -51,10 +51,12 @@ export function ChatPreview({
   const handleSend = () => {
     if (!inputValue.trim() || !onSendMessage) return
 
-    // If it's the first message, require name + email
-    if (showLeadForm && (!customerName.trim() || !customerEmail.trim())) {
-      alert("Please enter your name and email to continue.")
-      return
+    // Require name and email BEFORE sending the first message
+    if (showLeadForm) {
+      if (!customerName.trim() || !customerEmail.trim()) {
+        alert("Please enter your name and email to continue.")
+        return
+      }
     }
 
     const customerInfo = showLeadForm ? {
@@ -62,10 +64,11 @@ export function ChatPreview({
       email: customerEmail.trim()
     } : undefined
 
+    // Send the message with customer info
     onSendMessage(inputValue.trim(), customerInfo)
     setInputValue('')
 
-    // Hide form after first message is sent
+    // Hide the form after first message is sent
     if (showLeadForm) {
       setShowLeadForm(false)
     }
@@ -133,10 +136,10 @@ export function ChatPreview({
         )}
       </div>
 
-      {/* Lead Capture Form - Shown before first message */}
+      {/* Lead Capture Form - ALWAYS shown before first message */}
       {showLeadForm && messages.length === 0 && (
         <div className="p-4 border-t bg-white space-y-3">
-          <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
+          <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are to continue</p>
           
           <div className="space-y-3">
             <div className="relative">
