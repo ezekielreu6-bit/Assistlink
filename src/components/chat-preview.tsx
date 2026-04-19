@@ -36,7 +36,7 @@ export function ChatPreview({
   const [inputValue, setInputValue] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
-  const [showLeadForm, setShowLeadForm] = useState(true) // Always show first for new session
+  const [showLeadForm, setShowLeadForm] = useState(true) // Always show for first message
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -51,10 +51,10 @@ export function ChatPreview({
   const handleSend = () => {
     if (!inputValue.trim() || !onSendMessage) return
 
-    // Require name and email BEFORE sending the first message
+    // Require name and email on first message
     if (showLeadForm) {
       if (!customerName.trim() || !customerEmail.trim()) {
-        alert("Please enter your name and email to continue.")
+        alert("Please enter your name and email before sending your first message.")
         return
       }
     }
@@ -64,11 +64,11 @@ export function ChatPreview({
       email: customerEmail.trim()
     } : undefined
 
-    // Send the message with customer info
+    // Send the message
     onSendMessage(inputValue.trim(), customerInfo)
     setInputValue('')
 
-    // Hide the form after first message is sent
+    // Hide the form after the first message is sent
     if (showLeadForm) {
       setShowLeadForm(false)
     }
@@ -136,10 +136,10 @@ export function ChatPreview({
         )}
       </div>
 
-      {/* Lead Capture Form - ALWAYS shown before first message */}
+      {/* Lead Capture Form - Shown BEFORE first message */}
       {showLeadForm && messages.length === 0 && (
         <div className="p-4 border-t bg-white space-y-3">
-          <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are to continue</p>
+          <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
           
           <div className="space-y-3">
             <div className="relative">
