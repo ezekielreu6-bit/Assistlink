@@ -36,7 +36,7 @@ export function ChatPreview({
   const [inputValue, setInputValue] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
-  const [hasProvidedInfo, setHasProvidedInfo] = useState(false)
+  const [isFirstMessage, setIsFirstMessage] = useState(true) // Simple flag
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -51,25 +51,26 @@ export function ChatPreview({
   const handleSend = () => {
     if (!inputValue.trim() || !onSendMessage) return
 
-    // Require name and email for first message
-    if (!hasProvidedInfo) {
+    // For the very first message, require name and email
+    if (isFirstMessage) {
       if (!customerName.trim() || !customerEmail.trim()) {
         alert("Please enter your name and email before sending your first message.")
         return
       }
     }
 
-    const customerInfo = !hasProvidedInfo ? {
+    const customerInfo = isFirstMessage ? {
       name: customerName.trim(),
       email: customerEmail.trim()
     } : undefined
 
+    // Send the message
     onSendMessage(inputValue.trim(), customerInfo)
     setInputValue('')
 
-    // Hide form after successful first message
-    if (!hasProvidedInfo) {
-      setHasProvidedInfo(true)
+    // After first message is sent, hide the form permanently
+    if (isFirstMessage) {
+      setIsFirstMessage(false)
     }
   }
 
@@ -135,8 +136,8 @@ export function ChatPreview({
         )}
       </div>
 
-      {/* Lead Capture Form - Only for first message */}
-      {!hasProvidedInfo && messages.length === 0 && (
+      {/* Lead Capture Form - Shown only for the first message */}
+      {isFirstMessage && messages.length === 0 && (
         <div className="p-4 border-t bg-white space-y-3">
           <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
           
@@ -171,14 +172,14 @@ export function ChatPreview({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={!hasProvidedInfo ? "Type your first message..." : "Type your message..."}
+            placeholder={isFirstMessage ? "Type your first message..." : "Type your message..."}
             className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary"
             disabled={isTyping}
           />
 
           <Button
             onClick={handleSend}
-            disabled={!inputValue.trim() || isTyping || (!hasProvidedInfo && (!customerName.trim() || !customerEmail.trim()))}
+            disabled={!inputValue.trim() || isTyping || (isFirstMessage && (!customerName.trim() || !customerEmail.trim()))}
             size="icon"
             className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl transition-all active:scale-95"
             style={{ backgroundColor: primaryColor }}
