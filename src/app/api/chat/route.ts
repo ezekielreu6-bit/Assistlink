@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { agentSmartReplySuggestions } from '@/ai/flows/agent-smart-reply-suggestions-flow'; 
 import { generateAutoReply } from '@/ai/flows/generate-auto-reply-flow'; 
-import { sendNewSupportNotification } from '@/lib/send-notification-email'; 
+import { sendNewSupportNotification } from '@/lib/email-action'; 
 
 export async function POST(req: Request) {
   try {
