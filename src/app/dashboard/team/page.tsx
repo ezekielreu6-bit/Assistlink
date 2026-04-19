@@ -3,18 +3,17 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Search, UserPlus, Mail, Shield, MoreHorizontal, Loader2, Trash2, Users } from 'lucide-react'
+import { UserPlus, Mail, MoreHorizontal, Loader2, Trash2, Users } from 'lucide-react'
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, where, doc, setDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
 import { sendTeamInvitation } from '@/lib/email-action'
 
 export default function TeamPage() {
@@ -26,42 +25,46 @@ export default function TeamPage() {
   const [inviteRole, setInviteRole] = useState<'agent' | 'admin'>('agent')
   const [isInviting, setIsInviting] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
   const [currentUserRole, setCurrentUserRole] = useState<'agent' | 'admin' | null>(null)
 
-  // Smart Organization & Role Detection
+  // Safe Organization & Role Detection
   useEffect(() => {
     async function getOrgContext() {
       if (!user?.email || !db) return
 
-      const userEmail = user.email.toLowerCase()
-      const userDocRef = doc(db, 'users', userEmail)
-      const userSnap = await getDoc(userDocRef)
+      try {
+        const userEmail = user.email.toLowerCase().trim()
+        const userDocRef = doc(db, 'users', userEmail)
+        const userSnap = await getDoc(userDocRef)
 
-      if (userSnap.exists()) {
-        const userData = userSnap.data()
-        const orgId = userData.organizationId
+        if (userSnap.exists()) {
+          const userData = userSnap.data()
+          const orgId = userData.organizationId as string | undefined
 
-        setCurrentOrgId(orgId)
-        setCurrentUserRole(userData.role || 'agent')
+          setCurrentOrgId(orgId || null)
+          setCurrentUserRole((userData.role as 'agent' | 'admin') || 'agent')
 
-        // Check if this user is the owner (either no orgId or orgId matches their email pattern)
-        const isOrgOwner = !orgId || orgId === userEmail.replace(/\./g, '_')
-        setIsOwner(isOrgOwner)
-      } else {
-        // New user fallback (treat as owner)
-        const fallbackOrgId = userEmail.replace(/\./g, '_')
-        setCurrentOrgId(fallbackOrgId)
-        setIsOwner(true)
-        setCurrentUserRole('admin')
+          const isOrgOwner = !orgId || orgId === userEmail.replace(/\./g, '_')
+          setIsOwner(isOrgOwner)
+        } else {
+          // Owner fallback
+          const fallbackOrgId = userEmail.replace(/\./g, '_')
+          setCurrentOrgId(fallbackOrgId)
+          setIsOwner(true)
+          setCurrentUserRole('admin')
+        }
+      } catch (error) {
+        console.error("Error fetching org context:", error)
       }
     }
 
     getOrgContext()
   }, [user, db])
 
-  // Query team members
+  // Team Query
   const teamQuery = useMemoFirebase(() => {
     if (!db || !currentOrgId) return null
     return query(
@@ -70,16 +73,14 @@ export default function TeamPage() {
     )
   }, [db, currentOrgId])
 
-  const { data: teamMembers = [], isLoading } = useCollection(teamQuery)
+  const { data: teamMembers = [], isLoading } = useCollection(teamQuery) || { data: [], isLoading: true }
 
-  // Only owners/admins can invite and manage
   const canManageTeam = isOwner || currentUserRole === 'admin'
 
-  // Invite Handler
+  // Invite Handler (Fixed template literal)
   const handleInvite = async () => {
     if (!inviteEmail.trim() || !db || !currentOrgId || !canManageTeam) return
 
-    // Free tier limit
     if (teamMembers.length >= 5) {
       toast({
         title: "Limit Reached",
@@ -95,17 +96,16 @@ export default function TeamPage() {
       const inviteId = `inv_\( {Date.now().toString(36)} \){Math.random().toString(36).substring(2)}`
       const inviterName = user?.displayName || user?.email?.split('@')[0] || 'Admin'
 
-      // Send email invitation
       const emailResult = await sendTeamInvitation(
-        inviteEmail.trim(), 
-        inviteRole, 
-        inviterName, 
+        inviteEmail.trim(),
+        inviteRole,
+        inviterName,
         inviteId
       )
 
       if (!emailResult.success) throw new Error("Failed to send email")
 
-      // Save invitation
+      // Save invitation record
       await setDoc(doc(db, 'invitations', inviteId), {
         email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
@@ -115,7 +115,7 @@ export default function TeamPage() {
         createdAt: serverTimestamp()
       })
 
-      // Create placeholder user document
+      // Create placeholder user
       await setDoc(doc(db, 'users', inviteEmail.toLowerCase().trim()), {
         email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
@@ -127,18 +127,18 @@ export default function TeamPage() {
         updatedAt: serverTimestamp(),
       })
 
-      toast({ 
-        title: "Invitation Sent ✓", 
-        description: `Invite sent to ${inviteEmail}` 
+      toast({
+        title: "Invitation Sent ✓",
+        description: `Invite sent to ${inviteEmail}`
       })
 
       setInviteEmail('')
       setIsDialogOpen(false)
     } catch (error: any) {
-      console.error(error)
+      console.error("Invite error:", error)
       toast({
         title: "Invitation Failed",
-        description: "Could not send invitation. Please try again.",
+        description: error.message || "Could not send invitation. Please try again.",
         variant: "destructive"
       })
     } finally {
@@ -153,7 +153,7 @@ export default function TeamPage() {
       return
     }
 
-    if (!confirm(`Remove ${memberEmail} from the team?`)) return
+    if (!window.confirm(`Remove ${memberEmail} from the team?`)) return
 
     try {
       await deleteDoc(doc(db, 'users', memberEmail.toLowerCase().trim()))
@@ -161,14 +161,15 @@ export default function TeamPage() {
 
       toast({ title: "Member removed successfully" })
     } catch (error) {
+      console.error(error)
       toast({ title: "Failed to remove member", variant: "destructive" })
     }
   }
 
-  // If we still don't know the org, show loading
-  if (!currentOrgId) {
+  // Loading state while determining organization
+  if (!currentOrgId && user) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-[#3333CC]" />
       </div>
     )
@@ -184,9 +185,7 @@ export default function TeamPage() {
             Team
           </h1>
           <p className="text-muted-foreground">
-            {canManageTeam 
-              ? "Manage your support team and permissions" 
-              : "Your team members"}
+            {canManageTeam ? "Manage your support team and permissions" : "Your team members"}
           </p>
         </div>
 
@@ -203,8 +202,8 @@ export default function TeamPage() {
               <DialogHeader>
                 <DialogTitle>Invite Team Member</DialogTitle>
                 <DialogDescription>
-                  {teamMembers.length >= 5 
-                    ? "Free plan limit reached (5 members)" 
+                  {teamMembers.length >= 5
+                    ? "Free plan limit reached (5 members)"
                     : `${teamMembers.length} of 5 free seats used`}
                 </DialogDescription>
               </DialogHeader>
@@ -236,7 +235,7 @@ export default function TeamPage() {
               </div>
 
               <DialogFooter>
-                <Button 
+                <Button
                   onClick={handleInvite}
                   disabled={isInviting || !inviteEmail.trim() || teamMembers.length >= 5}
                   className="w-full h-12 rounded-xl bg-[#3333CC]"
@@ -265,7 +264,7 @@ export default function TeamPage() {
         </Card>
       )}
 
-      {/* Team Table / Cards */}
+      {/* Team Section */}
       <Card className="border-none shadow-sm rounded-3xl overflow-hidden">
         <CardHeader className="bg-muted/30 pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -300,7 +299,7 @@ export default function TeamPage() {
                   </TableRow>
                 ) : (
                   teamMembers.map((member: any) => (
-                    <TableRow key={member.id} className="hover:bg-muted/50">
+                    <TableRow key={member.id || member.email} className="hover:bg-muted/50">
                       <TableCell className="pl-8 py-5">
                         <div className="flex items-center gap-4">
                           <Avatar className="h-10 w-10 ring-2 ring-white">
@@ -309,13 +308,15 @@ export default function TeamPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium">{member.firstName || member.email?.split('@')[0]}</div>
+                            <div className="font-medium">
+                              {member.firstName || member.email?.split('@')[0] || 'Team Member'}
+                            </div>
                             <div className="text-sm text-muted-foreground">{member.email}</div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="capitalize font-medium text-sm">
-                        {member.role}
+                        {member.role || 'agent'}
                       </TableCell>
                       <TableCell>
                         <Badge variant={member.status === 'invited' ? "secondary" : "default"} className="rounded-full">
@@ -331,7 +332,7 @@ export default function TeamPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="rounded-xl">
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 className="text-red-600 cursor-pointer"
                                 onClick={() => handleDeleteMember(member.email, member.inviteId)}
                               >
@@ -352,23 +353,23 @@ export default function TeamPage() {
           {/* Mobile Cards */}
           <div className="md:hidden space-y-4 p-4">
             {teamMembers.map((member: any) => (
-              <Card key={member.id} className="p-5 rounded-2xl">
+              <Card key={member.id || member.email} className="p-5 rounded-2xl">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback className="bg-[#3333CC]/10 text-[#3333CC]">
-                        {member.email?.[0]?.toUpperCase()}
+                        {member.email?.[0]?.toUpperCase() || '?'}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="font-semibold">{member.email}</p>
-                      <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
+                      <p className="text-sm text-muted-foreground capitalize">{member.role || 'agent'}</p>
                     </div>
                   </div>
 
                   {canManageTeam && member.email !== user?.email && (
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       onClick={() => handleDeleteMember(member.email, member.inviteId)}
                     >
@@ -377,7 +378,7 @@ export default function TeamPage() {
                   )}
                 </div>
 
-                <div className="mt-4 flex items-center gap-3">
+                <div className="mt-4">
                   <Badge variant={member.status === 'invited' ? "secondary" : "default"}>
                     {member.status === 'invited' ? 'Pending Invitation' : 'Active'}
                   </Badge>
