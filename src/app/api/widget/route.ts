@@ -58,7 +58,7 @@ export async function GET(request: Request) {
       widget.style.left = '50%';
       widget.style.transform = 'translate(-50%, -50%)';
       widget.style.width = '380px';
-      widget.style.height = '500px';           // Compact & fits well
+      widget.style.height = '500px';           // Compact height
       widget.style.border = 'none';
       widget.style.borderRadius = '24px';
       widget.style.boxShadow = '0 25px 70px -20px rgba(0,0,0,0.45)';
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
       }
       if (newConfig.accentColor) config.accentColor = newConfig.accentColor;
 
-      // Update iframe src if widget exists
+      // Update iframe if it exists
       if (widget) {
         widget.src = "https://assistlink-bit.vercel.app/widget-ui?id=" + config.orgId + 
                      "&primary=" + config.primaryColor.replace('#', '') + 
