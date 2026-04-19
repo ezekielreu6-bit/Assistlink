@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://assistlink-bit.vercel.app';
 // Ensure you have a logo.png in your public folder, or use a hosted URL
-const logoUrl = `https://assistlink-bit.vercel.app/logo.png`; 
+const logoUrl = `/logo.png`; 
 
 const createTransporter = () => {
   return nodemailer.createTransport({
