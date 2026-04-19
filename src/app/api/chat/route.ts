@@ -22,8 +22,8 @@ export async function POST(req: Request) {
       message, 
       orgId, 
       sessionId,
-      customerName,   // ← New
-      customerEmail   // ← New
+      customerName,     
+      customerEmail     
     } = await req.json();
 
     if (!message?.trim() || !orgId || !sessionId) {
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       }))
       .reverse();
 
-    // 3. Get smart suggestions for agents
+    // 3. Get smart suggestions for the agent dashboard
     let suggestions: string[] = [];
     try {
       const result = await agentSmartReplySuggestions({
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. Save the user message with customer info (if provided)
+    // 5. Save user message with customer info
     await addDoc(messagesRef, {
       role: 'user',
       content: trimmedMessage,
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
       customerEmail: customerEmail || null,
     });
 
-    // 6. Update session metadata + store customer info
+    // 6. Update session metadata
     const sessionRef = doc(db, 'organizations', orgId, 'chatSessions', sessionId);
     await updateDoc(sessionRef, {
       lastMessage: trimmedMessage,
@@ -116,8 +116,8 @@ export async function POST(req: Request) {
       lastMessageBy: 'user',
       status: 'active',
       hasAutoReply: !!autoReplyContent,
-      customerName: customerName || null,      // ← Save here
-      customerEmail: customerEmail || null,    // ← Save here
+      customerName: customerName || null,
+      customerEmail: customerEmail || null,
     });
 
     // 7. Notify organization owner
@@ -142,6 +142,7 @@ export async function POST(req: Request) {
       }
     } catch (notifyError) {
       console.error("Failed to send owner notification:", notifyError);
+      // Don't break the chat if notification fails
     }
 
     return NextResponse.json({
