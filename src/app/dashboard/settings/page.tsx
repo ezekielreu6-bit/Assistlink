@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Wand2, Copy, Loader2, Save, Building2, Globe, Hash } from 'lucide-react'
+import { Wand2, Copy, Loader2, Save, Building2, Globe, Hash, MessageCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useUser } from '@/firebase'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
@@ -34,20 +34,35 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [activeField, setActiveField] = useState<'primary' | 'accent' | null>(null)
+  const [isPageLoading, setIsPageLoading] = useState(true)
 
-  const orgId = user?.email ? user.email.replace(/\./g, '_') : null
+  const [orgId, setOrgId] = useState<string | null>(null)
 
-  const widgetUrl = orgId 
-    ? `https://assistlink-bit.vercel.app/widget?id=\( {orgId}&primary= \){primaryColor.replace('#', '')}&accent=${accentColor.replace('#', '')}`
-    : ''
-
-  // Load settings
+  // Fetch orgId and settings
   useEffect(() => {
-    async function loadSettings() {
-      if (!orgId || !db) return
+    async function fetchOrgAndSettings() {
+      if (!user?.email || !db) {
+        setIsPageLoading(false)
+        return
+      }
 
       try {
-        const configRef = doc(db, 'organizations', orgId, 'chatWidgetConfigurations', 'default')
+        const userEmail = user.email.toLowerCase().trim()
+        const userDocRef = doc(db, 'users', userEmail)
+        const userSnap = await getDoc(userDocRef)
+
+        let currentOrgId: string
+        if (userSnap.exists()) {
+          const userData = userSnap.data()
+          currentOrgId = userData.organizationId || userEmail.replace(/\./g, '_')
+        } else {
+          currentOrgId = userEmail.replace(/\./g, '_')
+        }
+
+        setOrgId(currentOrgId)
+
+        // Load widget configuration
+        const configRef = doc(db, 'organizations', currentOrgId, 'chatWidgetConfigurations', 'default')
         const configSnap = await getDoc(configRef)
 
         if (configSnap.exists()) {
@@ -59,18 +74,25 @@ export default function SettingsPage() {
           setWebsiteUrl(data.websiteUrl || '')
         }
 
-        const orgRef = doc(db, 'organizations', orgId)
+        // Load plan for branding
+        const orgRef = doc(db, 'organizations', currentOrgId)
         const orgSnap = await getDoc(orgRef)
         if (orgSnap.exists()) {
           setShowBranding(orgSnap.data().plan !== 'pro')
         }
       } catch (error) {
         console.error("Failed to load settings:", error)
+      } finally {
+        setIsPageLoading(false)
       }
     }
 
-    loadSettings()
-  }, [orgId])
+    fetchOrgAndSettings()
+  }, [user])
+
+  const widgetUrl = orgId 
+    ? `https://assistlink-phi.vercel.app/widget?id=\( {orgId}&primary= \){primaryColor.replace('#', '')}&accent=${accentColor.replace('#', '')}`
+    : ''
 
   const handleSave = async () => {
     if (!orgId || !db) {
@@ -131,22 +153,15 @@ export default function SettingsPage() {
       if (result.primaryColor && result.accentColor) {
         setPrimaryColor(result.primaryColor)
         setAccentColor(result.accentColor)
-
         toast({
           title: "Brand Colors Detected",
           description: `Primary: ${result.primaryColor} • Accent: ${result.accentColor}`,
         })
-      } else {
-        toast({
-          title: "Partial Result",
-          description: "Colors extracted but you can fine-tune them manually.",
-        })
       }
     } catch (error) {
-      console.error("Color extraction error:", error)
       toast({
         title: "Extraction Failed",
-        description: "Could not analyze your website. Try again or pick colors manually.",
+        description: "Could not analyze your website. Try again or pick manually.",
         variant: "destructive"
       })
     } finally {
@@ -211,15 +226,51 @@ export default function SettingsPage() {
   )
 
   const embedCode = widgetUrl 
-    ? `<!-- AssistLink Chat Widget -->
-<iframe 
-  src="${widgetUrl}"
-  style="position: fixed; bottom: 20px; right: 20px; width: 380px; height: 620px; border: none; z-index: 999999; border-radius: 24px; box-shadow: 0 20px 60px -15px rgba(0,0,0,0.35);"
-  allow="clipboard-write">
-</iframe>`
-    : '<!-- Please save your settings first to generate the embed code -->'
+    ? `<!-- AssistLink Floating Chat Widget -->
+<script>
+  (function() {
+    const btn = document.createElement('button');
+    btn.style.position = 'fixed';
+    btn.style.bottom = '20px';
+    btn.style.right = '20px';
+    btn.style.width = '60px';
+    btn.style.height = '60px';
+    btn.style.borderRadius = '50%';
+    btn.style.backgroundColor = '${primaryColor}';
+    btn.style.color = 'white';
+    btn.style.border = 'none';
+    btn.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+    btn.style.cursor = 'pointer';
+    btn.style.zIndex = '999999';
+    btn.style.fontSize = '28px';
+    btn.innerHTML = '💬';
+    
+    btn.onclick = function() {
+      // Remove existing widget if open
+      const existing = document.getElementById('assistlink-widget');
+      if (existing) existing.remove();
 
-  if (!user) {
+      const widget = document.createElement('iframe');
+      widget.id = 'assistlink-widget';
+      widget.src = '${widgetUrl}';
+      widget.style.position = 'fixed';
+      widget.style.bottom = '90px';
+      widget.style.right = '20px';
+      widget.style.width = '380px';
+      widget.style.height = '620px';
+      widget.style.border = 'none';
+      widget.style.borderRadius = '24px';
+      widget.style.boxShadow = '0 20px 60px -15px rgba(0,0,0,0.35)';
+      widget.style.zIndex = '999999';
+      document.body.appendChild(widget);
+    };
+    
+    document.body.appendChild(btn);
+  })();
+</script>`
+    : '<!-- Save your settings first to generate the embed code -->'
+
+  if (isPageLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-[#3333CC]" />
@@ -229,7 +280,6 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 md:py-8 space-y-8 pb-20">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Widget Settings</h1>
@@ -291,7 +341,6 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* AI Color Extractor */}
               <Card className="border-none shadow-sm rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -325,9 +374,13 @@ export default function SettingsPage() {
             <TabsContent value="installation" className="mt-6">
               <Card className="border-none shadow-sm rounded-3xl">
                 <CardHeader>
-                  <CardTitle>Embed on Your Website</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5" />
+                    Floating Chat Button
+                  </CardTitle>
                   <CardDescription>
-                    Add this iframe code before the closing <code>&lt;/body&gt;</code> tag
+                    Paste this script before the closing <code>&lt;/body&gt;</code> tag.<br />
+                    It shows a floating button. Clicking it opens the chat widget.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -348,7 +401,7 @@ export default function SettingsPage() {
                     variant="outline"
                   >
                     <Copy className="mr-2 h-4 w-4" />
-                    Copy Embed Code
+                    Copy Floating Button Script
                   </Button>
                 </CardContent>
               </Card>
@@ -356,8 +409,8 @@ export default function SettingsPage() {
           </Tabs>
         </div>
 
-        {/* Live Preview - Optimized for Mobile */}
-        <div className="lg:col-span-5 lg:sticky lg:top-8">
+        {/* Live Preview */}
+        <div className="lg:col-span-5">
           <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-white">
             <CardHeader className="border-b bg-muted/30">
               <div className="flex items-center justify-between">
@@ -365,8 +418,8 @@ export default function SettingsPage() {
                 <span className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Real-time</span>
               </div>
             </CardHeader>
-            <CardContent className="p-6 md:p-8 flex justify-center bg-zinc-50 min-h-[480px] md:min-h-[620px]">
-              <div className="scale-[0.78] sm:scale-[0.85] md:scale-90 lg:scale-100 origin-top">
+            <CardContent className="p-6 md:p-8 flex justify-center bg-zinc-50 min-h-[460px] md:min-h-[620px]">
+              <div className="scale-[0.75] sm:scale-[0.82] md:scale-90 lg:scale-100 origin-top">
                 <ChatPreview
                   primaryColor={primaryColor}
                   accentColor={accentColor}
