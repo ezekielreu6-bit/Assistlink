@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { agentSmartReplySuggestions } from '@/ai/flows/agent-smart-reply-suggestions-flow'; 
 import { generateAutoReply } from '@/ai/flows/generate-auto-reply-flow'; 
-import { sendNewSupportNotification } from '@/lib/email-action'; 
+import { sendNewSupportNotification } from '@/lib/send-notification-email'; 
 
 export async function POST(req: Request) {
   try {
@@ -22,8 +22,8 @@ export async function POST(req: Request) {
       message, 
       orgId, 
       sessionId,
-      customerName,     
-      customerEmail     
+      customerName,     // From widget lead form
+      customerEmail     // From widget lead form
     } = await req.json();
 
     if (!message?.trim() || !orgId || !sessionId) {
