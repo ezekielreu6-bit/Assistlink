@@ -85,7 +85,7 @@ function ChatContent() {
     if (!db || !orgId || !selectedSessionId) return null
     return query(
       collection(db, 'organizations', orgId, 'chatSessions', selectedSessionId, 'chatMessages'),
-      orderBy('createdAt', 'asc')   // ← Fixed: matches widget
+      orderBy('createdAt', 'asc')
     )
   }, [db, orgId, selectedSessionId])
 
@@ -93,10 +93,10 @@ function ChatContent() {
   const rawMessages = messagesResult?.data || []
 
   // Normalize messages (support both old and new schema)
-  const messages = rawMessages.map((msg: any) => ({
-    id: msg.id,
+  const messages = rawMessages.map((msg: any, index: number) => ({
+    id: msg.id || `msg-${index}`,
     role: msg.role || (msg.senderType === 'agent' ? 'assistant' : 'user'),
-    content: msg.content,
+    content: msg.content || '',
     senderType: msg.senderType || (msg.role === 'assistant' ? 'agent' : 'user'),
     createdAt: msg.createdAt || msg.timestamp,
   }))
@@ -110,9 +110,9 @@ function ChatContent() {
   const activeSessionResult = useDoc(sessionRef)
   const activeSession = activeSessionResult?.data
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (messagesEndRef.current && messages.length > 0) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages])
@@ -129,7 +129,7 @@ function ChatContent() {
         content,
         senderType: 'agent',
         senderEmail: user.email,
-        createdAt: serverTimestamp(),   // ← Fixed: use createdAt
+        createdAt: serverTimestamp(),
       })
 
       await updateDoc(doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId), {
@@ -156,7 +156,6 @@ function ChatContent() {
     }
   }
 
-  // Main loading state
   if (!orgId) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -254,29 +253,35 @@ function ChatContent() {
 
           {/* Messages Area */}
           <ScrollArea className="flex-1 p-6 bg-zinc-50">
-            <div className="space-y-6">
-              {messages.map((msg: any, idx: number) => {
-                const isAgent = msg.senderType === 'agent' || msg.role === 'assistant'
-                return (
-                  <div
-                    key={idx}
-                    className={cn("flex", isAgent ? "justify-end" : "justify-start")}
-                  >
+            {messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No messages yet. Waiting for customer to start chatting...
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {messages.map((msg: any, idx: number) => {
+                  const isAgent = msg.senderType === 'agent' || msg.role === 'assistant'
+                  return (
                     <div
-                      className={cn(
-                        "max-w-[75%] px-4 py-3 rounded-3xl text-sm",
-                        isAgent 
-                          ? "bg-primary text-white rounded-tr-none" 
-                          : "bg-white border rounded-tl-none"
-                      )}
+                      key={msg.id}
+                      className={cn("flex", isAgent ? "justify-end" : "justify-start")}
                     >
-                      {msg.content}
+                      <div
+                        className={cn(
+                          "max-w-[75%] px-4 py-3 rounded-3xl text-sm",
+                          isAgent 
+                            ? "bg-primary text-white rounded-tr-none" 
+                            : "bg-white border rounded-tl-none"
+                        )}
+                      >
+                        {msg.content}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-              <div ref={messagesEndRef} />
-            </div>
+                  )
+                })}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
           </ScrollArea>
 
           {/* Reply Input */}
