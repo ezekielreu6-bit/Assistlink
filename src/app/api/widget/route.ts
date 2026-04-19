@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   const primaryColor = `#${searchParams.get('primary') || '3333CC'}`;
   const accentColor = `#${searchParams.get('accent') || '1FBAF5'}`;
 
+
   const widgetScript = `
 (function() {
   // Configuration
