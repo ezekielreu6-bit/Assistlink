@@ -76,7 +76,9 @@ function ChatContent() {
     )
   }, [db, orgId])
 
-  const { data: sessions = [], isLoading: sessionsLoading } = useCollection(sessionsQuery) || { data: [], isLoading: true }
+  const sessionsResult = useCollection(sessionsQuery)
+  const sessions = sessionsResult?.data || []
+  const sessionsLoading = sessionsResult?.isLoading || true
 
   // Messages for selected session
   const messagesQuery = useMemoFirebase(() => {
@@ -87,7 +89,8 @@ function ChatContent() {
     )
   }, [db, orgId, selectedSessionId])
 
-  const { data: messages = [] } = useCollection(messagesQuery) || { data: [] }
+  const messagesResult = useCollection(messagesQuery)
+  const messages = messagesResult?.data || []
 
   const sessionRef = useMemoFirebase(() => 
     (db && orgId && selectedSessionId) 
@@ -95,12 +98,11 @@ function ChatContent() {
       : null,
     [db, orgId, selectedSessionId]
   )
-  const { data: activeSession } = useDoc(sessionRef)
+  const activeSessionResult = useDoc(sessionRef)
+  const activeSession = activeSessionResult?.data
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !selectedSessionId || !user || !db || !orgId) {
-      return
-    }
+    if (!inputValue.trim() || !selectedSessionId || !user || !db || !orgId) return
 
     const content = inputValue.trim()
     setInputValue('')
