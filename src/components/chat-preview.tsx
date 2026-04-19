@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Paperclip } from 'lucide-react'
+import { Send, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -13,43 +13,46 @@ interface Message {
 }
 
 interface ChatPreviewProps {
-  primaryColor: string
-  accentColor: string
-  companyName: string
-  welcomeMessage: string
+  primaryColor?: string
+  accentColor?: string
+  companyName?: string
+  welcomeMessage?: string
   messages?: Message[]
   onSendMessage?: (message: string) => void
   isTyping?: boolean
-  showBranding?: boolean // NEW: Pro Feature
+  showBranding?: boolean
 }
 
-export function ChatPreview({ 
-  primaryColor = '#3333CC', 
+export function ChatPreview({
+  primaryColor = '#3333CC',
   accentColor = '#1FBAF5',
-  companyName = 'AssistLink',
+  companyName = 'Support',
   welcomeMessage = 'Hi! How can we help you today?',
   messages = [],
   onSendMessage,
   isTyping = false,
-  showBranding = true // Default to true (Free Tier)
+  showBranding = true,
 }: ChatPreviewProps) {
   const [inputValue, setInputValue] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to bottom when messages change or typing starts
+  // Auto-scroll to bottom whenever messages or typing state changes
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      })
     }
   }, [messages, isTyping])
 
   const handleSend = () => {
     if (!inputValue.trim() || !onSendMessage) return
-    onSendMessage(inputValue)
+    onSendMessage(inputValue.trim())
     setInputValue('')
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -57,49 +60,66 @@ export function ChatPreview({
   }
 
   return (
-    <Card className="w-[350px] sm:w-[400px] h-[550px] overflow-hidden flex flex-col shadow-2xl border-none animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <Card className="w-[360px] sm:w-[400px] h-[560px] overflow-hidden flex flex-col shadow-2xl border-0 rounded-3xl bg-white">
       {/* Header */}
-      <div 
-        className="p-4 flex items-center justify-between text-white shrink-0"
+      <div
+        className="px-5 py-4 flex items-center justify-between text-white shrink-0"
         style={{ backgroundColor: primaryColor }}
       >
         <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+            <span className="text-lg">💬</span>
+          </div>
+          <div>
+            <p className="font-semibold text-base leading-none">{companyName}</p>
+            <p className="text-xs text-white/80 mt-0.5">Support</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="font-semibold text-sm">{companyName} Support</span>
+          <span className="text-xs font-medium text-white/90">Online</span>
         </div>
       </div>
 
       {/* Messages Area */}
-      <div 
+      <div
         ref={scrollRef}
-        className="flex-1 p-4 bg-white overflow-y-auto space-y-4 scroll-smooth"
+        className="flex-1 p-5 bg-zinc-50 overflow-y-auto space-y-6 scroll-smooth"
       >
-        {/* Welcome Message (Shows if no history) */}
+        {/* Initial Welcome Message */}
         {messages.length === 0 && (
-          <div className="flex flex-col gap-1 animate-in fade-in slide-in-from-left-2 duration-300">
-            <div className="bg-gray-100 rounded-2xl rounded-tl-none p-3 text-sm max-w-[85%] text-gray-800">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center flex-shrink-0">
+              💬
+            </div>
+            <div className="bg-white rounded-3xl rounded-tl-none px-4 py-3 text-sm text-gray-800 max-w-[85%] shadow-sm">
               {welcomeMessage}
             </div>
           </div>
         )}
 
-        {/* Dynamic Messages */}
+        {/* Render Messages */}
         {messages.map((msg, index) => (
-          <div 
+          <div
             key={index}
             className={cn(
-              "flex flex-col gap-1 animate-in fade-in duration-300",
-              msg.role === 'user' ? "items-end" : "items-start"
+              "flex",
+              msg.role === 'user' ? "justify-end" : "justify-start"
             )}
           >
-            <div 
+            <div
               className={cn(
-                "rounded-2xl p-3 text-sm max-w-[85%] shadow-sm",
-                msg.role === 'user' 
-                  ? "rounded-tr-none text-white" 
-                  : "rounded-tl-none bg-gray-100 text-gray-800"
+                "max-w-[80%] px-4 py-3 rounded-3xl text-sm leading-relaxed shadow-sm",
+                msg.role === 'user'
+                  ? "rounded-tr-none text-white"
+                  : "rounded-tl-none bg-white text-gray-800"
               )}
-              style={msg.role === 'user' ? { backgroundColor: accentColor } : {}}
+              style={
+                msg.role === 'user'
+                  ? { backgroundColor: accentColor }
+                  : {}
+              }
             >
               {msg.content}
             </div>
@@ -108,9 +128,16 @@ export function ChatPreview({
 
         {/* Typing Indicator */}
         {isTyping && (
-          <div className="flex items-center gap-2 animate-pulse">
-            <div className="bg-gray-100 rounded-2xl rounded-tl-none p-3">
-              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center flex-shrink-0">
+              💬
+            </div>
+            <div className="bg-white rounded-3xl rounded-tl-none px-4 py-3 flex items-center gap-1.5">
+              <div className="flex gap-1">
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
             </div>
           </div>
         )}
@@ -119,36 +146,40 @@ export function ChatPreview({
       {/* Input Area */}
       <div className="p-4 bg-white border-t shrink-0">
         <div className="relative flex items-center">
-          <Input 
+          <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Type your message..." 
-            className="pr-12 py-6 rounded-xl border-gray-200 bg-gray-50/50 focus-visible:ring-primary"
+            onKeyDown={handleKeyDown}
+            placeholder="Type your message..."
+            className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-offset-2"
+            disabled={isTyping}
           />
-          <div className="absolute right-2 flex items-center">
-            <Button 
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isTyping}
-              size="icon" 
-              className="h-9 w-9 rounded-lg shadow-md transition-all active:scale-90"
-              style={{ backgroundColor: primaryColor }}
-            >
-              {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-white" />}
-            </Button>
-          </div>
+
+          <Button
+            onClick={handleSend}
+            disabled={!inputValue.trim() || isTyping}
+            size="icon"
+            className="absolute right-2 h-10 w-10 rounded-xl shadow transition-all active:scale-95"
+            style={{ backgroundColor: primaryColor }}
+          >
+            {isTyping ? (
+              <Loader2 className="w-5 h-5 animate-spin text-white" />
+            ) : (
+              <Send className="w-5 h-5 text-white" />
+            )}
+          </Button>
         </div>
 
-        {/* PRO FEATURE: Conditional Branding */}
+        {/* Branding (Hidden for Pro users) */}
         {showBranding && (
-          <div className="mt-3 text-center">
-            <a 
-              href="https://assistlink-bit.vercel.app" 
-              target="_blank" 
+          <div className="mt-4 text-center">
+            <a
+              href="https://assistlink-bit.vercel.app"
+              target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] text-gray-400 hover:text-primary transition-colors font-medium tracking-tight"
+              className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
             >
-              Powered by <span className="font-bold" style={{ color: primaryColor }}>AssistLink</span>
+              Powered by <span className="font-semibold" style={{ color: primaryColor }}>AssistLink</span>
             </a>
           </div>
         )}
