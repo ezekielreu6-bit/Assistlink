@@ -10,7 +10,8 @@ import {
   getDocs,
   doc,
   getDoc,
-  updateDoc
+  updateDoc,
+  setDoc
 } from 'firebase/firestore';
 import { agentSmartReplySuggestions } from '@/ai/flows/agent-smart-reply-suggestions-flow'; 
 import { generateAutoReply } from '@/ai/flows/generate-auto-reply-flow'; 
@@ -22,8 +23,8 @@ export async function POST(req: Request) {
       message, 
       orgId, 
       sessionId,
-      customerName,     // From widget lead form
-      customerEmail     // From widget lead form
+      customerName,     
+      customerEmail     
     } = await req.json();
 
     if (!message?.trim() || !orgId || !sessionId) {
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
             role: 'assistant',
             content: autoReplyContent,
             createdAt: serverTimestamp(),
+            timestamp: serverTimestamp(), // backward compatibility
             isAutoReply: true,
             generatedBy: 'ai',
           });
@@ -99,26 +101,29 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. Save user message with customer info (if provided)
+    // 5. Save user message with customer info
     await addDoc(messagesRef, {
       role: 'user',
       content: trimmedMessage,
       createdAt: serverTimestamp(),
+      timestamp: serverTimestamp(), // backward compatibility
       customerName: customerName || null,
       customerEmail: customerEmail || null,
     });
 
-    // 6. Update session metadata + store customer info
+    // 6. Update (or create) session metadata + store customer info
     const sessionRef = doc(db, 'organizations', orgId, 'chatSessions', sessionId);
-    await updateDoc(sessionRef, {
+    await setDoc(sessionRef, {
       lastMessage: trimmedMessage,
       lastMessageAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
       lastMessageBy: 'user',
       status: 'active',
       hasAutoReply: !!autoReplyContent,
       customerName: customerName || null,
       customerEmail: customerEmail || null,
-    });
+      orgId,
+    }, { merge: true });
 
     // 7. Notify organization owner
     try {
@@ -142,7 +147,6 @@ export async function POST(req: Request) {
       }
     } catch (notifyError) {
       console.error("Failed to send owner notification:", notifyError);
-      // Don't break the chat if notification fails
     }
 
     return NextResponse.json({
