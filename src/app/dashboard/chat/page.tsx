@@ -35,7 +35,7 @@ function ChatContent() {
   const [inputValue, setInputValue] = useState('')
   const [orgId, setOrgId] = useState<string | null>(null)
 
-  // Fetch correct orgId (works for owners and invited agents)
+  // Fetch correct orgId for both owners and invited agents
   useEffect(() => {
     async function getOrgContext() {
       if (!user?.email || !db) return
@@ -98,7 +98,9 @@ function ChatContent() {
   const { data: activeSession } = useDoc(sessionRef)
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !selectedSessionId || !user || !db || !orgId) return
+    if (!inputValue.trim() || !selectedSessionId || !user || !db || !orgId) {
+      return
+    }
 
     const content = inputValue.trim()
     setInputValue('')
@@ -136,7 +138,7 @@ function ChatContent() {
     }
   }
 
-  // Loading state
+  // Main loading state
   if (!orgId) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -147,19 +149,19 @@ function ChatContent() {
 
   return (
     <div className="h-[calc(100vh-4rem)] p-4 flex flex-col lg:flex-row gap-4 overflow-hidden">
-      {/* Sessions List */}
+      {/* Sessions List Sidebar */}
       <Card className={cn(
         "w-full lg:w-80 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden shrink-0",
         selectedSessionId && "hidden lg:flex"
       )}>
-        <div className="p-4 border-b">
+        <div className="p-4 border-b bg-white">
           <h2 className="font-semibold text-lg">Conversations</h2>
         </div>
 
         <ScrollArea className="flex-1">
           {sessionsLoading ? (
             <div className="flex justify-center p-12">
-              <Loader2 className="w-6 h-6 animate-spin" />
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
           ) : sessions.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
@@ -195,7 +197,7 @@ function ChatContent() {
         </ScrollArea>
       </Card>
 
-      {/* Chat Area */}
+      {/* Main Chat Area */}
       {selectedSessionId ? (
         <Card className="flex-1 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden">
           {/* Header */}
@@ -213,13 +215,18 @@ function ChatContent() {
               </div>
             </div>
 
-            <Button onClick={handleResolveSession} variant="outline" size="sm" className="text-green-600">
+            <Button 
+              onClick={handleResolveSession} 
+              variant="outline" 
+              size="sm" 
+              className="text-green-600 border-green-200 hover:bg-green-50"
+            >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Resolve
             </Button>
           </div>
 
-          {/* Messages */}
+          {/* Messages Area */}
           <ScrollArea className="flex-1 p-6 bg-zinc-50">
             <div className="space-y-6">
               {messages.map((msg: any, idx: number) => (
@@ -245,7 +252,7 @@ function ChatContent() {
             </div>
           </ScrollArea>
 
-          {/* Input */}
+          {/* Reply Input */}
           <div className="p-4 border-t bg-white">
             <div className="flex gap-3">
               <Input
@@ -270,7 +277,7 @@ function ChatContent() {
           <MessageSquare className="w-16 h-16 text-muted-foreground mb-6" />
           <h2 className="text-2xl font-semibold mb-2">No conversation selected</h2>
           <p className="text-muted-foreground max-w-md">
-            Select a conversation from the list to start replying.
+            Select a conversation from the list to start replying to customers.
           </p>
         </Card>
       )}
@@ -281,7 +288,7 @@ function ChatContent() {
 export default function ChatPage() {
   return (
     <Suspense fallback={
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     }>
