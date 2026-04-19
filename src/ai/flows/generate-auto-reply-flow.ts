@@ -1,102 +1,85 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import puppeteer from 'puppeteer';        // npm install puppeteer
-import { Vibrant } from 'node-vibrant/node'; // npm install node-vibrant
-import sharp from 'sharp';                // npm install sharp (for better image handling)
 
-export const extractWebsiteColors = ai.defineFlow(
+export const generateAutoReply = ai.defineFlow(
   {
-    name: 'extractWebsiteColors',
+    name: 'generateAutoReply',
     inputSchema: z.object({
-      websiteUrl: z.string().url().describe("The customer's website URL"),
-      orgId: z.string().optional(), // optional if you want to save to their config
+      customerMessage: z.string().min(1),
+      conversationHistory: z.array(
+        z.object({
+          role: z.enum(['user', 'assistant']),
+          content: z.string(),
+        })
+      ).default([]),
+      orgConfig: z.object({
+        companyName: z.string().default('Support'),
+        customInstructions: z.string().optional(),
+        welcomeMessage: z.string().optional(),
+      }),
     }),
     outputSchema: z.object({
-      primaryColor: z.string().describe("Main brand color as hex, e.g. #3333CC"),
-      accentColor: z.string().describe("Secondary/CTA color as hex, e.g. #1FBAF5"),
-      confidence: z.number().min(0).max(1),
-      extractedFrom: z.enum(['screenshot', 'favicon', 'css', 'fallback']),
-      logoUrl: z.string().optional(),
+      reply: z.string().min(5),
     }),
   },
-  async ({ websiteUrl }) => {
-    let browser;
+  async ({ customerMessage, conversationHistory, orgConfig }) => {
+    // Build a strong system prompt
+    const systemPrompt = `
+You are a friendly, professional, and helpful AI support assistant for ${orgConfig.companyName}.
+
+${orgConfig.customInstructions ? `Additional company guidelines: ${orgConfig.customInstructions}` : ''}
+
+Core Rules:
+- Keep replies concise, warm, and actionable (1-3 sentences maximum).
+- Sound human and empathetic.
+- If the question involves billing, refunds, account access, or sensitive data, respond politely and say you are escalating to a human agent.
+- Always offer a clear next step or ask for more details when needed.
+- Use the conversation history to maintain context.
+- Never make promises you cannot keep.
+
+Tone: Helpful, calm, and solution-oriented.
+`;
+
+    // Format history for the model
+    const formattedHistory = conversationHistory
+      .map((msg) => `${msg.role === 'user' ? 'Customer' : 'You'}: ${msg.content}`)
+      .join('\n\n');
+
+    const fullPrompt = `${systemPrompt}
+
+Recent conversation:
+${formattedHistory}
+
+Customer: ${customerMessage}
+
+You:`;
+
     try {
-      // Launch headless browser
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      const { text } = await ai.generate({
+        model: ai.model('gemini-1.5-flash'), // Fast & cost-effective. Change to gemini-1.5-pro if needed for better quality
+        prompt: fullPrompt,
+        config: {
+          temperature: 0.7,
+          maxOutputTokens: 300,
+        },
       });
 
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1280, height: 800 });
+      const cleanReply = text.trim();
 
-      // Go to the site and wait for load
-      await page.goto(websiteUrl, { waitUntil: 'networkidle2', timeout: 15000 });
-
-      // 1. Try to get favicon / logo first (often has brand colors)
-      const faviconUrl = await page.evaluate(() => {
-        const link = document.querySelector('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
-        return link ? (link as HTMLLinkElement).href : null;
-      });
-
-      let logoUrl = faviconUrl || `${new URL(websiteUrl).origin}/favicon.ico`;
-
-      // 2. Take a clean screenshot of the visible area (best for dominant colors)
-      const screenshotBuffer = await page.screenshot({ fullPage: false, type: 'png' });
-
-      // 3. Extract colors using node-vibrant (very reliable)
-      const palette = await Vibrant.from(screenshotBuffer).getPalette();
-
-      // Vibrant gives: Vibrant, Muted, DarkVibrant, LightVibrant, etc.
-      const vibrantHex = palette.Vibrant?.hex || '#3333CC';
-      const mutedHex = palette.Muted?.hex || palette.DarkVibrant?.hex || '#1FBAF5';
-
-      // Decide primary vs accent
-      // Usually the most "Vibrant" is primary, second is accent
-      let primaryColor = vibrantHex;
-      let accentColor = mutedHex || vibrantHex;
-
-      // Bonus: Try to find dominant CSS colors (body bg, buttons, etc.)
-      const cssColors = await page.evaluate(() => {
-        const colors: string[] = [];
-        const elements = document.querySelectorAll('body, header, button, a, .btn, [style*="background"]');
-        elements.forEach(el => {
-          const style = window.getComputedStyle(el);
-          if (style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)') colors.push(style.backgroundColor);
-          if (style.color) colors.push(style.color);
-        });
-        return [...new Set(colors)]; // unique
-      });
-
-      // Simple fallback if vibrant gives weird results
-      if (!primaryColor || primaryColor === '#000000') {
-        primaryColor = '#3333CC'; // your default
+      // Fallback if model returns something too short or empty
+      if (!cleanReply || cleanReply.length < 10) {
+        return {
+          reply: `Thank you for your message. I'll look into this right away and get back to you shortly. Is there anything else I can help with?`,
+        };
       }
-      if (!accentColor) accentColor = '#1FBAF5';
 
-      await browser.close();
-
-      return {
-        primaryColor,
-        accentColor,
-        confidence: 0.85, // high because we use real screenshot + vibrant
-        extractedFrom: faviconUrl ? 'favicon' : 'screenshot',
-        logoUrl: logoUrl || undefined,
-      };
-
+      return { reply: cleanReply };
     } catch (error) {
-      console.error("Color crawler failed for", websiteUrl, error);
+      console.error('Auto-reply generation failed:', error);
       
-      if (browser) await browser.close();
-
-      // Graceful fallback (use sensible defaults or AI guess, but we keep it deterministic)
+      // Safe fallback reply
       return {
-        primaryColor: '#3333CC',
-        accentColor: '#1FBAF5',
-        confidence: 0.4,
-        extractedFrom: 'fallback',
-        logoUrl: undefined,
+        reply: `Hi! Thanks for reaching out. Our team is looking into your request and will respond as soon as possible.`,
       };
     }
   }
