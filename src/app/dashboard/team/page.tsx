@@ -15,7 +15,7 @@ import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebas
 import { collection, query, where, doc, setDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
-import { sendTeamInvitation } from '@/app/actions/email'
+import { sendTeamInvitation } from '@/lib/email-action'
 
 export default function TeamPage() {
   const { user } = useUser()
