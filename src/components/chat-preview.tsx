@@ -21,8 +21,6 @@ interface ChatPreviewProps {
   onSendMessage?: (message: string, customerInfo?: { name: string; email: string }) => void
   isTyping?: boolean
   showBranding?: boolean
-  showLeadForm?: boolean
-  onLeadFormSubmit?: (info: { name: string; email: string }) => void
 }
 
 export function ChatPreview({
@@ -34,8 +32,6 @@ export function ChatPreview({
   onSendMessage,
   isTyping = false,
   showBranding = true,
-  showLeadForm = true,
-  onLeadFormSubmit,
 }: ChatPreviewProps) {
   const [inputValue, setInputValue] = useState('')
   const [localName, setLocalName] = useState('')
@@ -53,13 +49,13 @@ export function ChatPreview({
 
     let customerInfo: { name: string; email: string } | undefined = undefined
 
-    if (showLeadForm) {
+    // Only require name/email on the very first message
+    if (messages.length === 0) {
       if (!localName.trim() || !localEmail.trim()) {
         alert("Please enter your name and email before sending your first message.")
         return
       }
       customerInfo = { name: localName.trim(), email: localEmail.trim() }
-      if (onLeadFormSubmit) onLeadFormSubmit(customerInfo)
     }
 
     onSendMessage(inputValue.trim(), customerInfo)
@@ -129,8 +125,8 @@ export function ChatPreview({
         )}
       </div>
 
-      {/* Lead Capture Form */}
-      {showLeadForm && messages.length === 0 && (
+      {/* Lead Capture Form - Only shows when no messages yet */}
+      {messages.length === 0 && (
         <div className="p-4 border-t bg-white space-y-3">
           <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
           <div className="space-y-3">
@@ -164,13 +160,13 @@ export function ChatPreview({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={showLeadForm ? "Type your first message..." : "Type your message..."}
+            placeholder={messages.length === 0 ? "Type your first message..." : "Type your message..."}
             className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary"
             disabled={isTyping}
           />
           <Button
             onClick={handleSend}
-            disabled={!inputValue.trim() || isTyping || (showLeadForm && (!localName.trim() || !localEmail.trim()))}
+            disabled={!inputValue.trim() || isTyping || (messages.length === 0 && (!localName.trim() || !localEmail.trim()))}
             size="icon"
             className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl transition-all active:scale-95"
             style={{ backgroundColor: primaryColor }}
