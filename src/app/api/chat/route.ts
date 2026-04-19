@@ -9,59 +9,108 @@ import {
   limit, 
   getDocs,
   doc,
+  getDoc,
   updateDoc
 } from 'firebase/firestore';
 import { agentSmartReplySuggestions } from '@/ai/flows/agent-smart-reply-suggestions-flow'; 
+import { generateAutoReply } from '@/ai/flows/generate-auto-reply-flow'; // ← Create this flow (I'll help below)
 
 export async function POST(req: Request) {
   try {
     const { message, orgId, sessionId } = await req.json();
 
-    if (!message || !orgId || !sessionId) {
+    if (!message?.trim() || !orgId || !sessionId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // 1. Fetch recent conversation history for context (last 6 messages)
-    const messagesRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages');
-    const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(6));
-    const querySnapshot = await getDocs(q);
+    const trimmedMessage = message.trim();
+
+    // 1. Fetch organization config to check plan + custom instructions
+    const configRef = doc(db, 'organizations', orgId, 'chatWidgetConfigurations', 'default');
+    const configSnap = await getDoc(configRef);
+    const config = configSnap.exists() ? configSnap.data() : {};
     
-    // Map Firestore data to the format your Genkit flow expects
-    const history = querySnapshot.docs
-      .map(doc => ({
-        role: (doc.data().role === 'user' ? 'user' : 'agent') as 'user' | 'agent',
-        message: doc.data().content as string
+    const isPro = config.plan === 'pro' || config.plan === 'premium'; // adjust if you use different labels
+
+    // 2. Fetch rich conversation history (last 12 messages for better context)
+    const messagesRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages');
+    const historyQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(12));
+    const snapshot = await getDocs(historyQuery);
+
+    const history = snapshot.docs
+      .map((d) => ({
+        role: d.data().role === 'user' ? 'user' : 'assistant',
+        content: d.data().content as string,
       }))
-      .reverse(); // Reverse to get chronological order
+      .reverse();
 
-    // 2. Run your Genkit Flow to get smart suggestions
-    const { suggestions } = await agentSmartReplySuggestions({
-      customerMessage: message,
-      conversationHistory: history
-    });
+    // 3. Always get smart suggestions for the agent dashboard
+    let suggestions: string[] = [];
+    try {
+      const result = await agentSmartReplySuggestions({
+        customerMessage: trimmedMessage,
+        conversationHistory: history,
+        orgConfig: {
+          companyName: config.companyName || 'Support',
+          customInstructions: config.aiInstructions || '',
+        },
+      });
+      suggestions = result.suggestions || [];
+    } catch (err) {
+      console.error("Suggestions flow failed:", err);
+      suggestions = ["I'll look into this and get back to you soon."];
+    }
 
-    // 3. Save the User's message to Firestore
-    // We include the suggestions in the user's message document 
-    // so the Agent Dashboard can render them immediately under the message.
-    const userMessageRef = await addDoc(messagesRef, {
-      role: 'user',
-      content: message,
-      createdAt: serverTimestamp(),
-      aiSuggestions: suggestions // Store suggestions here for the agent to see
-    });
+    // 4. Pro-only: Generate and send AI auto-reply instantly
+    let autoReplyContent: string | null = null;
 
-    // 4. Update the session's "lastMessage" and "status"
+    if (isPro) {
+      try {
+        const { reply } = await generateAutoReply({
+          customerMessage: trimmedMessage,
+          conversationHistory: history,
+          orgConfig: {
+            companyName: config.companyName || 'Support',
+            welcomeMessage: config.welcomeMessage,
+            customInstructions: config.aiInstructions || '',
+            // Add any other fields you store (e.g. knowledge base reference)
+          },
+        });
+
+        if (reply && reply.trim()) {
+          autoReplyContent = reply.trim();
+
+          // Save the AI reply to Firestore so widget sees it in real-time
+          await addDoc(messagesRef, {
+            role: 'assistant',
+            content: autoReplyContent,
+            createdAt: serverTimestamp(),
+            isAutoReply: true,        // flag for dashboard/UI
+            generatedBy: 'ai',
+          });
+        }
+      } catch (autoReplyError) {
+        console.error("Auto-reply generation failed:", autoReplyError);
+        // Don't fail the whole request — still save user message
+      }
+    }
+
+    // 5. Update session metadata
     const sessionRef = doc(db, 'organizations', orgId, 'chatSessions', sessionId);
     await updateDoc(sessionRef, {
-      lastMessage: message,
+      lastMessage: trimmedMessage,
       lastMessageAt: serverTimestamp(),
-      status: 'active' // Ensure session is marked as needing attention
+      lastMessageBy: 'user',
+      status: 'active',
+      hasAutoReply: !!autoReplyContent,   // useful for agent view
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      messageId: userMessageRef.id,
-      suggestions: suggestions 
+    // 6. Return success
+    return NextResponse.json({
+      success: true,
+      suggestions,
+      autoReplySent: !!autoReplyContent,
+      // You can return the reply for debugging, but widget gets it via Firestore listener
     });
 
   } catch (error) {
