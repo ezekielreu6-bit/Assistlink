@@ -36,7 +36,6 @@ export function ChatPreview({
   const [inputValue, setInputValue] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to bottom whenever messages or typing state changes
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -60,46 +59,44 @@ export function ChatPreview({
   }
 
   return (
-    <Card className="w-[360px] sm:w-[400px] h-[560px] overflow-hidden flex flex-col shadow-2xl border-0 rounded-3xl bg-white">
+    <Card className="w-[360px] sm:w-[380px] h-[480px] overflow-hidden flex flex-col shadow-2xl border-0 rounded-3xl bg-white">
       {/* Header */}
       <div
         className="px-5 py-4 flex items-center justify-between text-white shrink-0"
         style={{ backgroundColor: primaryColor }}
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-            <span className="text-lg">💬</span>
+          <div className="w-9 h-9 bg-white/20 rounded-2xl flex items-center justify-center text-xl">
+            💬
           </div>
           <div>
             <p className="font-semibold text-base leading-none">{companyName}</p>
-            <p className="text-xs text-white/80 mt-0.5">Support</p>
+            <p className="text-xs text-white/75">Support</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-xs font-medium text-white/90">Online</span>
+        <div className="flex items-center gap-2 text-xs">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+          Online
         </div>
       </div>
 
       {/* Messages Area */}
       <div
         ref={scrollRef}
-        className="flex-1 p-5 bg-zinc-50 overflow-y-auto space-y-6 scroll-smooth"
+        className="flex-1 p-4 bg-zinc-50 overflow-y-auto space-y-4 scroll-smooth"
       >
-        {/* Initial Welcome Message */}
         {messages.length === 0 && (
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center text-xl flex-shrink-0">
               💬
             </div>
-            <div className="bg-white rounded-3xl rounded-tl-none px-4 py-3 text-sm text-gray-800 max-w-[85%] shadow-sm">
+            <div className="bg-white rounded-3xl rounded-tl-none px-4 py-3 text-[15px] text-gray-800 max-w-[82%] shadow-sm">
               {welcomeMessage}
             </div>
           </div>
         )}
 
-        {/* Render Messages */}
         {messages.map((msg, index) => (
           <div
             key={index}
@@ -110,29 +107,24 @@ export function ChatPreview({
           >
             <div
               className={cn(
-                "max-w-[80%] px-4 py-3 rounded-3xl text-sm leading-relaxed shadow-sm",
+                "max-w-[82%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed shadow-sm",
                 msg.role === 'user'
                   ? "rounded-tr-none text-white"
                   : "rounded-tl-none bg-white text-gray-800"
               )}
-              style={
-                msg.role === 'user'
-                  ? { backgroundColor: accentColor }
-                  : {}
-              }
+              style={msg.role === 'user' ? { backgroundColor: accentColor } : {}}
             >
               {msg.content}
             </div>
           </div>
         ))}
 
-        {/* Typing Indicator */}
         {isTyping && (
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center text-xl flex-shrink-0">
               💬
             </div>
-            <div className="bg-white rounded-3xl rounded-tl-none px-4 py-3 flex items-center gap-1.5">
+            <div className="bg-white rounded-3xl rounded-tl-none px-4 py-3">
               <div className="flex gap-1">
                 <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                 <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -145,13 +137,13 @@ export function ChatPreview({
 
       {/* Input Area */}
       <div className="p-4 bg-white border-t shrink-0">
-        <div className="relative flex items-center">
+        <div className="relative">
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type your message..."
-            className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-offset-2"
+            className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary"
             disabled={isTyping}
           />
 
@@ -159,7 +151,7 @@ export function ChatPreview({
             onClick={handleSend}
             disabled={!inputValue.trim() || isTyping}
             size="icon"
-            className="absolute right-2 h-10 w-10 rounded-xl shadow transition-all active:scale-95"
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl transition-all active:scale-95"
             style={{ backgroundColor: primaryColor }}
           >
             {isTyping ? (
@@ -170,16 +162,16 @@ export function ChatPreview({
           </Button>
         </div>
 
-        {/* Branding (Hidden for Pro users) */}
+        {/* Branding - Now clickable and redirects to your link */}
         {showBranding && (
-          <div className="mt-4 text-center">
+          <div className="mt-3 text-center">
             <a
-              href="https://assistlink-bit.vercel.app"
+              href="https://assistlink-bit.vercel.app"   // ← Change this to your actual website if needed
               target="_blank"
               rel="noopener noreferrer"
               className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
             >
-              Powered by <span className="font-semibold" style={{ color: primaryColor }}>AssistLink</span>
+              Powered by <span className="font-medium" style={{ color: primaryColor }}>AssistLink</span>
             </a>
           </div>
         )}
