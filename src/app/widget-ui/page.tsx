@@ -12,12 +12,13 @@ function WidgetContent() {
   const [messages, setMessages] = useState<{role: string, content: string}[]>([])
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  
+
   // Widget Customization State
   const [settings, setSettings] = useState({
-    companyName: 'Support', // Default name as requested
+    companyName: 'Support',
     showBranding: true,
-    welcomeMessage: 'Hi! How can we help you today?'
+    welcomeMessage: 'Hi! How can we help you today?',
+    // Add more premium options later (avatar, position, etc.)
   })
 
   const orgId = searchParams?.get('id') || 'default'
@@ -26,7 +27,7 @@ function WidgetContent() {
 
   useEffect(() => { setIsMounted(true) }, [])
 
-  // 1. Fetch Organization Widget Settings (Pro Status & Custom Overrides)
+  // Fetch Organization Settings
   useEffect(() => {
     if (!isMounted || !orgId || !db) return
 
@@ -34,14 +35,16 @@ function WidgetContent() {
       try {
         const configRef = doc(db, 'organizations', orgId, 'chatWidgetConfigurations', 'default')
         const configSnap = await getDoc(configRef)
-        
+
         if (configSnap.exists()) {
           const data = configSnap.data()
-          setSettings({
-            companyName: data.companyName || 'Support', // Use custom name if set, else "Support"
-            showBranding: data.plan !== 'pro', // Hide branding only for Pro users
-            welcomeMessage: data.welcomeMessage || 'Hi! How can we help you today?'
-          })
+          setSettings(prev => ({
+            ...prev,
+            companyName: data.companyName || 'Support',
+            showBranding: data.plan !== 'pro', // Only Pro hides branding
+            welcomeMessage: data.welcomeMessage || 'Hi! How can we help you today?',
+            // You can add more fields here (e.g. avatarUrl, position: 'bottom-right')
+          }))
         }
       } catch (err) {
         console.error("Error loading widget settings:", err)
@@ -51,18 +54,18 @@ function WidgetContent() {
     fetchWidgetSettings()
   }, [isMounted, orgId])
 
-  // 2. Handle Session Persistence
+  // Session Persistence (unchanged - good)
   useEffect(() => {
     if (!isMounted) return
     let sId = localStorage.getItem(`al_session_${orgId}`)
     if (!sId) {
-      sId = Math.random().toString(36).substring(7)
+      sId = `sess_\( {Date.now().toString(36)} \){Math.random().toString(36).substring(2)}`
       localStorage.setItem(`al_session_${orgId}`, sId)
     }
     setSessionId(sId)
   }, [isMounted, orgId])
 
-  // 3. Listen for Messages
+  // Listen for Messages (improved welcome logic)
   useEffect(() => {
     if (!isMounted || !sessionId || !orgId || !db) return
 
@@ -75,14 +78,8 @@ function WidgetContent() {
         content: doc.data().content
       }))
 
-      if (msgs.length > 0) {
-        setMessages(msgs)
-      } else {
-        setMessages([{ role: 'assistant', content: settings.welcomeMessage }])
-      }
-    }, (err) => {
-      console.error("Firestore Listen Error:", err.message)
-    })
+      setMessages(msgs.length > 0 ? msgs : [{ role: 'assistant', content: settings.welcomeMessage }])
+    }, (err) => console.error("Firestore Listen Error:", err))
 
     return () => unsubscribe()
   }, [isMounted, sessionId, orgId, settings.welcomeMessage])
@@ -90,25 +87,29 @@ function WidgetContent() {
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || !sessionId || !db) return
 
-    const userMsg = { role: 'user', content };
-    setMessages(prev => [...prev, userMsg]);
     setLoading(true)
 
     try {
       const colRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages')
       await addDoc(colRef, {
         role: 'user',
-        content,
-        createdAt: serverTimestamp() 
+        content: content.trim(),
+        createdAt: serverTimestamp()
       })
 
+      // Call your AI/backend endpoint
       await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content, orgId, sessionId })
+        body: JSON.stringify({ 
+          message: content.trim(), 
+          orgId, 
+          sessionId 
+        })
       })
     } catch (error) {
-      console.error("Failed to send:", error)
+      console.error("Failed to send message:", error)
+      // Optional: show error toast in ChatPreview
     } finally {
       setLoading(false)
     }
@@ -117,7 +118,7 @@ function WidgetContent() {
   if (!isMounted) return null
 
   return (
-    <div className="w-full h-screen bg-transparent flex items-end justify-end p-4">
+    <div className="w-full h-screen bg-transparent flex items-end justify-end p-6 md:p-8">
       <ChatPreview 
         primaryColor={primaryColor} 
         accentColor={accentColor}
@@ -127,6 +128,7 @@ function WidgetContent() {
         messages={messages} 
         onSendMessage={handleSendMessage}
         isTyping={loading}
+        // Pass more props later: avatar, borderRadius, etc.
       />
     </div>
   )
@@ -134,7 +136,7 @@ function WidgetContent() {
 
 export default function WidgetUIPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<div className="w-full h-screen bg-transparent" />}>
       <WidgetContent />
     </Suspense>
   )
