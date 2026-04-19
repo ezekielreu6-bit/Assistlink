@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, User, Mail } from 'lucide-react'
+import { Send, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,7 @@ interface ChatPreviewProps {
   companyName?: string
   welcomeMessage?: string
   messages?: Message[]
-  onSendMessage?: (message: string, customerInfo?: { name: string; email: string }) => void
+  onSendMessage?: (message: string) => void   // This must be passed from parent
   isTyping?: boolean
   showBranding?: boolean
 }
@@ -34,11 +34,9 @@ export function ChatPreview({
   showBranding = true,
 }: ChatPreviewProps) {
   const [inputValue, setInputValue] = useState('')
-  const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [showLeadForm, setShowLeadForm] = useState(messages.length === 0)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -46,27 +44,19 @@ export function ChatPreview({
         behavior: 'smooth',
       })
     }
-  }, [messages, isTyping, showLeadForm])
+  }, [messages, isTyping])
 
   const handleSend = () => {
-    if (!inputValue.trim() || !onSendMessage) return
-
-    if (showLeadForm && (!customerName.trim() || !customerEmail.trim())) {
-      alert("Please enter your name and email")
-      return
+    if (!inputValue.trim()) return
+    
+    // Call the parent's handler
+    if (onSendMessage) {
+      onSendMessage(inputValue.trim())
+    } else {
+      console.warn("onSendMessage prop is not provided to ChatPreview")
     }
-
-    const customerInfo = showLeadForm ? {
-      name: customerName.trim(),
-      email: customerEmail.trim()
-    } : undefined
-
-    onSendMessage(inputValue.trim(), customerInfo)
+    
     setInputValue('')
-
-    if (showLeadForm) {
-      setShowLeadForm(false)
-    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -79,9 +69,14 @@ export function ChatPreview({
   return (
     <Card className="w-[360px] sm:w-[380px] h-[480px] overflow-hidden flex flex-col shadow-2xl border-0 rounded-3xl bg-white">
       {/* Header */}
-      <div className="px-5 py-4 flex items-center justify-between text-white shrink-0" style={{ backgroundColor: primaryColor }}>
+      <div
+        className="px-5 py-4 flex items-center justify-between text-white shrink-0"
+        style={{ backgroundColor: primaryColor }}
+      >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-white/20 rounded-2xl flex items-center justify-center text-xl">💬</div>
+          <div className="w-9 h-9 bg-white/20 rounded-2xl flex items-center justify-center text-xl">
+            💬
+          </div>
           <div>
             <p className="font-semibold text-base">{companyName}</p>
             <p className="text-xs text-white/75">Support</p>
@@ -94,10 +89,15 @@ export function ChatPreview({
       </div>
 
       {/* Messages Area */}
-      <div ref={scrollRef} className="flex-1 p-4 bg-zinc-50 overflow-y-auto space-y-4 scroll-smooth">
+      <div
+        ref={scrollRef}
+        className="flex-1 p-4 bg-zinc-50 overflow-y-auto space-y-4 scroll-smooth"
+      >
         {messages.length === 0 && (
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center text-xl">💬</div>
+            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center text-xl flex-shrink-0">
+              💬
+            </div>
             <div className="bg-white rounded-3xl rounded-tl-none px-4 py-3 text-[15px] text-gray-800 max-w-[82%] shadow-sm">
               {welcomeMessage}
             </div>
@@ -105,11 +105,20 @@ export function ChatPreview({
         )}
 
         {messages.map((msg, index) => (
-          <div key={index} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
-            <div className={cn(
-              "max-w-[82%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed shadow-sm",
-              msg.role === 'user' ? "rounded-tr-none text-white" : "rounded-tl-none bg-white text-gray-800"
+          <div
+            key={index}
+            className={cn(
+              "flex",
+              msg.role === 'user' ? "justify-end" : "justify-start"
             )}
+          >
+            <div
+              className={cn(
+                "max-w-[82%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed shadow-sm",
+                msg.role === 'user'
+                  ? "rounded-tr-none text-white"
+                  : "rounded-tl-none bg-white text-gray-800"
+              )}
               style={msg.role === 'user' ? { backgroundColor: accentColor } : {}}
             >
               {msg.content}
@@ -119,45 +128,19 @@ export function ChatPreview({
 
         {isTyping && (
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center text-xl">💬</div>
+            <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center text-xl flex-shrink-0">
+              💬
+            </div>
             <div className="bg-white rounded-3xl rounded-tl-none px-4 py-3">
               <div className="flex gap-1">
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0ms'}} />
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'150ms'}} />
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'300ms'}} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* Lead Capture Form (shown on first message) */}
-      {showLeadForm && messages.length === 0 && (
-        <div className="p-4 border-t bg-white space-y-3">
-          <p className="text-xs text-center text-muted-foreground">Please tell us who you are</p>
-          <div className="space-y-2">
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Your name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="pl-10 rounded-xl"
-              />
-            </div>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="email"
-                placeholder="your@email.com"
-                value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
-                className="pl-10 rounded-xl"
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Input Area */}
       <div className="p-4 bg-white border-t shrink-0">
@@ -166,19 +149,23 @@ export function ChatPreview({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={showLeadForm ? "Type your first message..." : "Type your message..."}
+            placeholder="Type your message..."
             className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary"
             disabled={isTyping}
           />
 
           <Button
             onClick={handleSend}
-            disabled={!inputValue.trim() || isTyping || (showLeadForm && (!customerName.trim() || !customerEmail.trim()))}
+            disabled={!inputValue.trim() || isTyping}
             size="icon"
             className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl transition-all active:scale-95"
             style={{ backgroundColor: primaryColor }}
           >
-            {isTyping ? <Loader2 className="w-5 h-5 animate-spin text-white" /> : <Send className="w-5 h-5 text-white" />}
+            {isTyping ? (
+              <Loader2 className="w-5 h-5 animate-spin text-white" />
+            ) : (
+              <Send className="w-5 h-5 text-white" />
+            )}
           </Button>
         </div>
 
