@@ -138,6 +138,7 @@ function WidgetContent() {
         messages={messages} 
         onSendMessage={handleSendMessage}
         isTyping={loading}
+        sessionId={sessionId}
       />
     </div>
   )
