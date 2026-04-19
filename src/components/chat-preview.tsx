@@ -36,7 +36,7 @@ export function ChatPreview({
   const [inputValue, setInputValue] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
-  const [hasProvidedInfo, setHasProvidedInfo] = useState(false) // Changed from showLeadForm
+  const [hasProvidedInfo, setHasProvidedInfo] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function ChatPreview({
   const handleSend = () => {
     if (!inputValue.trim() || !onSendMessage) return
 
-    // On first message, require name and email
+    // If this is the first message, require name and email
     if (!hasProvidedInfo) {
       if (!customerName.trim() || !customerEmail.trim()) {
         alert("Please enter your name and email before sending your first message.")
@@ -67,7 +67,7 @@ export function ChatPreview({
     onSendMessage(inputValue.trim(), customerInfo)
     setInputValue('')
 
-    // After first message, hide the form permanently
+    // Hide form after first message
     if (!hasProvidedInfo) {
       setHasProvidedInfo(true)
     }
@@ -135,7 +135,7 @@ export function ChatPreview({
         )}
       </div>
 
-      {/* Lead Capture Form - Shown only for first message */}
+      {/* Lead Capture Form - Shown for first message */}
       {!hasProvidedInfo && messages.length === 0 && (
         <div className="p-4 border-t bg-white space-y-3">
           <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
@@ -171,7 +171,7 @@ export function ChatPreview({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={ !hasProvidedInfo ? "Type your first message..." : "Type your message..."}
+            placeholder={!hasProvidedInfo ? "Type your first message..." : "Type your message..."}
             className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary"
             disabled={isTyping}
           />
