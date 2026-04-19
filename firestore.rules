@@ -1,112 +1,77 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * ASSISTLINK SECURITY ARCHITECTURE
-     * 
-     * Dashboard: Restricted to authenticated organization members.
-     * Widget: Publicly accessible for chat sessions and messages.
-     */
-
-    // --- Helper Functions ---
-
-    /** @description Checks if the request is from an authenticated user. */
+    // ========== HELPER FUNCTIONS ==========
     function isSignedIn() {
       return request.auth != null && request.auth.token.email != null;
     }
 
-    /** @description Checks if the user's email matches the provided userEmail. */
-    function isOwner(userEmail) {
-      return isSignedIn() && request.auth.token.email == userEmail;
-    }
-
-    /** @description Retrieves the user's profile data for organization verification. */
     function getUserData() {
-      // Profiles are keyed by email address
-      return get(/databases/$(database)/documents/users/$(request.auth.token.email)).data;
+      let userDoc = get(/databases/\( (database)/documents/users/ \)(request.auth.token.email));
+      return userDoc.exists ? userDoc.data : null;
     }
 
-    /** @description Verifies if the authenticated user belongs to a specific organization. */
     function isOrgMember(orgId) {
-      return isSignedIn() && getUserData().organizationId == orgId;
+      let user = getUserData();
+      return isSignedIn() && user != null && user.organizationId == orgId;
     }
 
-    /** @description Verifies if the authenticated user is an admin of their organization. */
     function isOrgAdmin(orgId) {
-      return isOrgMember(orgId) && getUserData().role == 'admin';
+      let user = getUserData();
+      return isOrgMember(orgId) && user.role == 'admin';
     }
 
-    // --- Collection Rules ---
-
-    /**
-     * @description Rules for the User profiles. 
-     */
+    // ========== USERS ==========
     match /users/{userEmail} {
-      allow get: if isOwner(userEmail) || isOrgMember(resource.data.organizationId);
-
-      allow list: if isSignedIn() && (
-        isOwner(userEmail) || 
-        getUserData().organizationId == resource.data.organizationId
-      );
-
-      allow create: if isOwner(userEmail);
-      allow update: if isOwner(userEmail) || isOrgAdmin(resource.data.organizationId);
-      allow delete: if isOrgAdmin(resource.data.organizationId);
-
-      match /emailNotificationSettings/{settingId} {
-        allow get, list, create, update, delete: if isOwner(userEmail);
-      }
+      allow read, write: if isSignedIn() && request.auth.token.email == userEmail;
     }
 
-    /**
-     * @description Organization documents and sub-collections.
-     */
-    match /organizations/{organizationId} {
-      // Dashboard access
-      allow get, list: if isOrgMember(organizationId);
-      allow create: if isSignedIn();
-      allow update: if isOrgMember(organizationId);
-      allow delete: if isOrgAdmin(organizationId);
+    // ========== ORGANIZATIONS ==========
+    match /organizations/{orgId} {
+      // Dashboard access for org members
+      allow read, write: if isOrgMember(orgId);
 
-      match /chatWidgetConfigurations/{widgetId} {
-        allow read, write: if isOrgMember(organizationId);
+      // Widget config (public read for widget, write for members)
+      match /chatWidgetConfigurations/{configId} {
+        allow read: if true;
+        allow write: if isOrgMember(orgId);
       }
 
-      match /customers/{customerId} {
-        allow read, write: if isOrgMember(organizationId);
-      }
-
-      /**
-       * CHAT SESSIONS & MESSAGES (WIDGET ACCESS)
-       * 
-       * We allow 'true' for create/get/list here so that website visitors 
-       * who are not logged in can still use the chat widget.
-       */
+      // ========== CHAT SESSIONS (Widget + Dashboard) ==========
       match /chatSessions/{sessionId} {
-        // Allow public visitors to start a session, and members to manage them
-        allow create, get: if true; 
-        allow list, update, delete: if isOrgMember(organizationId);
+        // Public can create sessions (widget)
+        allow create: if true;
+        
+        // Public can read their own session (widget)
+        allow get: if true;
+        
+        // Org members can list, update, delete all sessions
+        allow list, update, delete: if isOrgMember(orgId);
 
+        // ========== CHAT MESSAGES ==========
         match /chatMessages/{messageId} {
-          // Allow public visitors to read/send messages, and members to manage them
-          allow list, get, create: if true;
-          allow update, delete: if isOrgMember(organizationId);
+          // Public can create and read messages (widget)
+          allow create, get, list: if true;
+          
+          // Org members can update/delete
+          allow update, delete: if isOrgMember(orgId);
         }
       }
 
-      match /agentSmartReplies/{replyId} {
-        allow read, write: if isOrgMember(organizationId);
+      match /customers/{customerId} {
+        allow read, write: if isOrgMember(orgId);
       }
 
-      match /emailNotificationSettings/{settingId} {
-        allow read, write: if isOrgMember(organizationId);
+      match /agentSmartReplies/{replyId} {
+        allow read, write: if isOrgMember(orgId);
       }
     }
 
     match /globalAgentSmartReplies/{replyId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if false;
+      allow read: if isSignedIn();
+      allow write: if false;
     }
   }
 }
