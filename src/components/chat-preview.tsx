@@ -21,7 +21,6 @@ interface ChatPreviewProps {
   onSendMessage?: (message: string, customerInfo?: { name: string; email: string }) => void
   isTyping?: boolean
   showBranding?: boolean
-  // NEW: Controlled props from parent
   showLeadForm?: boolean
   onLeadFormSubmit?: (info: { name: string; email: string }) => void
 }
@@ -35,7 +34,6 @@ export function ChatPreview({
   onSendMessage,
   isTyping = false,
   showBranding = true,
-  // NEW: Controlled props
   showLeadForm = true,
   onLeadFormSubmit,
 }: ChatPreviewProps) {
@@ -46,10 +44,7 @@ export function ChatPreview({
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: 'smooth',
-      })
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
     }
   }, [messages, isTyping])
 
@@ -63,14 +58,8 @@ export function ChatPreview({
         alert("Please enter your name and email before sending your first message.")
         return
       }
-      customerInfo = {
-        name: localName.trim(),
-        email: localEmail.trim(),
-      }
-      // Notify parent to hide the form permanently
-      if (onLeadFormSubmit) {
-        onLeadFormSubmit(customerInfo)
-      }
+      customerInfo = { name: localName.trim(), email: localEmail.trim() }
+      if (onLeadFormSubmit) onLeadFormSubmit(customerInfo)
     }
 
     onSendMessage(inputValue.trim(), customerInfo)
@@ -114,36 +103,36 @@ export function ChatPreview({
 
         {messages.map((msg, index) => (
           <div key={index} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
-            <div className={cn(
-              "max-w-[82%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed shadow-sm",
-              msg.role === 'user' ? "rounded-tr-none text-white" : "rounded-tl-none bg-white text-gray-800"
-            )}
+            <div
+              className={cn(
+                "max-w-[82%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed shadow-sm",
+                msg.role === 'user' ? "rounded-tr-none text-white" : "rounded-tl-none bg-white text-gray-800"
+              )}
               style={msg.role === 'user' ? { backgroundColor: accentColor } : {}}
             >
               {msg.content}
             </div>
           </div>
-        ))
+        ))}
 
         {isTyping && (
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-2xl bg-white shadow flex items-center justify-center text-xl">💬</div>
             <div className="bg-white rounded-3xl rounded-tl-none px-4 py-3">
               <div className="flex gap-1">
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0ms'}} />
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'150ms'}} />
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'300ms'}} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Lead Capture Form - Controlled by parent */}
+      {/* Lead Capture Form */}
       {showLeadForm && messages.length === 0 && (
         <div className="p-4 border-t bg-white space-y-3">
           <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
-          
           <div className="space-y-3">
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -179,7 +168,6 @@ export function ChatPreview({
             className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary"
             disabled={isTyping}
           />
-
           <Button
             onClick={handleSend}
             disabled={!inputValue.trim() || isTyping || (showLeadForm && (!localName.trim() || !localEmail.trim()))}
