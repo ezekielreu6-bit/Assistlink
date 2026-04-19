@@ -8,13 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { 
-  ArrowLeft, 
-  Send, 
-  Loader2, 
-  MessageSquare, 
-  CheckCircle2 
-} from 'lucide-react'
+import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useFirestore, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase'
 import { 
@@ -40,9 +34,8 @@ function ChatContent() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [orgId, setOrgId] = useState<string | null>(null)
-  const [currentUserRole, setCurrentUserRole] = useState<'agent' | 'admin' | null>(null)
 
-  // Smart Org ID Detection (works for both owner and invited agents)
+  // Fetch correct orgId (works for owners and invited agents)
   useEffect(() => {
     async function getOrgContext() {
       if (!user?.email || !db) return
@@ -52,20 +45,16 @@ function ChatContent() {
         const userDocRef = doc(db, 'users', userEmail)
         const userSnap = await getDoc(userDocRef)
 
-        let currentOrgId: string
-        let role: 'agent' | 'admin' = 'agent'
+        let currentOrgId = userEmail.replace(/\./g, '_')
 
         if (userSnap.exists()) {
           const userData = userSnap.data()
-          currentOrgId = userData.organizationId || userEmail.replace(/\./g, '_')
-          role = userData.role || 'agent'
-        } else {
-          currentOrgId = userEmail.replace(/\./g, '_')
-          role = 'admin'
+          if (userData.organizationId) {
+            currentOrgId = userData.organizationId
+          }
         }
 
         setOrgId(currentOrgId)
-        setCurrentUserRole(role)
 
         if (querySessionId) {
           setSelectedSessionId(querySessionId)
@@ -78,7 +67,7 @@ function ChatContent() {
     getOrgContext()
   }, [user, db, querySessionId])
 
-  // Fetch all sessions for this organization
+  // Sessions list
   const sessionsQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
     return query(
@@ -89,7 +78,7 @@ function ChatContent() {
 
   const { data: sessions = [], isLoading: sessionsLoading } = useCollection(sessionsQuery) || { data: [], isLoading: true }
 
-  // Fetch messages for selected session
+  // Messages for selected session
   const messagesQuery = useMemoFirebase(() => {
     if (!db || !orgId || !selectedSessionId) return null
     return query(
@@ -115,26 +104,19 @@ function ChatContent() {
     setInputValue('')
 
     try {
-      await addDoc(
-        collection(db, 'organizations', orgId, 'chatSessions', selectedSessionId, 'chatMessages'), 
-        {
-          role: 'assistant',           // Agent is replying
-          content,
-          senderType: 'agent',
-          senderEmail: user.email,
-          timestamp: serverTimestamp(),
-        }
-      )
+      await addDoc(collection(db, 'organizations', orgId, 'chatSessions', selectedSessionId, 'chatMessages'), {
+        role: 'assistant',
+        content,
+        senderType: 'agent',
+        senderEmail: user.email,
+        timestamp: serverTimestamp(),
+      })
 
-      // Update session last message
-      await updateDoc(
-        doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId), 
-        {
-          lastMessage: content,
-          updatedAt: serverTimestamp(),
-          lastReplyBy: 'agent'
-        }
-      )
+      await updateDoc(doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId), {
+        lastMessage: content,
+        updatedAt: serverTimestamp(),
+        lastReplyBy: 'agent'
+      })
     } catch (error) {
       toast({ title: "Failed to send message", variant: "destructive" })
     }
@@ -143,47 +125,45 @@ function ChatContent() {
   const handleResolveSession = async () => {
     if (!selectedSessionId || !db || !orgId) return
 
-    await updateDoc(
-      doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId), 
-      {
+    try {
+      await updateDoc(doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId), {
         status: 'resolved',
         updatedAt: serverTimestamp()
-      }
-    )
-
-    toast({
-      title: "Session Resolved",
-      description: "Conversation marked as resolved.",
-    })
+      })
+      toast({ title: "Session Resolved" })
+    } catch (error) {
+      toast({ title: "Failed to resolve session", variant: "destructive" })
+    }
   }
 
+  // Loading state
   if (!orgId) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
-      {/* Session List Sidebar */}
+    <div className="h-[calc(100vh-4rem)] p-4 flex flex-col lg:flex-row gap-4 overflow-hidden">
+      {/* Sessions List */}
       <Card className={cn(
         "w-full lg:w-80 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden shrink-0",
         selectedSessionId && "hidden lg:flex"
       )}>
-        <div className="p-4 border-b bg-white">
+        <div className="p-4 border-b">
           <h2 className="font-semibold text-lg">Conversations</h2>
         </div>
 
         <ScrollArea className="flex-1">
           {sessionsLoading ? (
             <div className="flex justify-center p-12">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              <Loader2 className="w-6 h-6 animate-spin" />
             </div>
           ) : sessions.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
-              No active conversations yet
+              No conversations yet
             </div>
           ) : (
             sessions.map((session: any) => (
@@ -195,18 +175,13 @@ function ChatContent() {
                   selectedSessionId === session.id && "bg-primary/5 border-l-4 border-primary"
                 )}
               >
-                <Avatar className="h-10 w-10 shrink-0">
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {session.customerName?.[0] || 'C'}
-                  </AvatarFallback>
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback>{session.customerName?.[0] || 'C'}</AvatarFallback>
                 </Avatar>
-
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center">
-                    <p className="font-medium truncate text-sm">
-                      {session.customerName || 'Anonymous Customer'}
-                    </p>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  <div className="flex justify-between">
+                    <p className="font-medium truncate">{session.customerName || 'Anonymous'}</p>
+                    <span className="text-xs text-muted-foreground">
                       {session.updatedAt ? formatDistanceToNow(session.updatedAt.toDate()) : 'New'}
                     </span>
                   </div>
@@ -220,30 +195,25 @@ function ChatContent() {
         </ScrollArea>
       </Card>
 
-      {/* Main Chat Area */}
-      {selectedSessionId && activeSession ? (
+      {/* Chat Area */}
+      {selectedSessionId ? (
         <Card className="flex-1 border-none shadow-sm flex flex-col rounded-2xl overflow-hidden">
-          {/* Chat Header */}
+          {/* Header */}
           <div className="px-6 py-4 border-b flex items-center justify-between bg-white">
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSelectedSessionId(null)}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <Avatar className="h-10 w-10">
-                <AvatarFallback>{activeSession.customerName?.[0] || 'C'}</AvatarFallback>
+                <AvatarFallback>{activeSession?.customerName?.[0] || 'C'}</AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="font-semibold">{activeSession.customerName || 'Customer'}</h3>
+                <h3 className="font-semibold">{activeSession?.customerName || 'Customer'}</h3>
                 <p className="text-xs text-muted-foreground">Live Chat</p>
               </div>
             </div>
 
-            <Button 
-              onClick={handleResolveSession}
-              variant="outline"
-              size="sm"
-              className="text-green-600 border-green-200 hover:bg-green-50"
-            >
+            <Button onClick={handleResolveSession} variant="outline" size="sm" className="text-green-600">
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Resolve
             </Button>
@@ -263,8 +233,8 @@ function ChatContent() {
                   <div
                     className={cn(
                       "max-w-[75%] px-4 py-3 rounded-3xl text-sm",
-                      msg.senderType === 'agent'
-                        ? "bg-primary text-white rounded-tr-none"
+                      msg.senderType === 'agent' 
+                        ? "bg-primary text-white rounded-tr-none" 
                         : "bg-white border rounded-tl-none"
                     )}
                   >
@@ -275,7 +245,7 @@ function ChatContent() {
             </div>
           </ScrollArea>
 
-          {/* Reply Input */}
+          {/* Input */}
           <div className="p-4 border-t bg-white">
             <div className="flex gap-3">
               <Input
@@ -300,7 +270,7 @@ function ChatContent() {
           <MessageSquare className="w-16 h-16 text-muted-foreground mb-6" />
           <h2 className="text-2xl font-semibold mb-2">No conversation selected</h2>
           <p className="text-muted-foreground max-w-md">
-            Select a conversation from the list to start replying to customers.
+            Select a conversation from the list to start replying.
           </p>
         </Card>
       )}
