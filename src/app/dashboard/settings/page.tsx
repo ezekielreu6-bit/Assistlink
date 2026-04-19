@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUser } from '@/firebase'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
-import { ChatPreview } from '@/components/chat-preview'   // ← Make sure this import exists
+import { ChatPreview } from '@/components/chat-preview'
 
 const COMMON_COLORS = [
   '#3333CC', '#1FBAF5', '#7C3AED', '#F43F5E', '#10B981',
@@ -37,12 +37,11 @@ export default function SettingsPage() {
 
   const orgId = user?.email ? user.email.replace(/\./g, '_') : null
 
-  // Correct widget URL (fixed template literal)
   const widgetUrl = orgId 
-    ? `https://assistlink-phi.vercel.app/widget?id=\( {orgId}&primary= \){primaryColor.replace('#', '')}&accent=${accentColor.replace('#', '')}`
+    ? `https://assistlink-bit.vercel.app/widget?id=\( {orgId}&primary= \){primaryColor.replace('#', '')}&accent=${accentColor.replace('#', '')}`
     : ''
 
-  // Load settings from Firestore
+  // Load settings
   useEffect(() => {
     async function loadSettings() {
       if (!orgId || !db) return
@@ -73,7 +72,6 @@ export default function SettingsPage() {
     loadSettings()
   }, [orgId])
 
-  // Save settings
   const handleSave = async () => {
     if (!orgId || !db) {
       toast({ title: "Error", description: "Please sign in again.", variant: "destructive" })
@@ -108,7 +106,6 @@ export default function SettingsPage() {
     }
   }
 
-  // AI Brand Color Extraction
   const handleExtractColors = async () => {
     if (!websiteUrl.trim()) {
       toast({
@@ -220,9 +217,8 @@ export default function SettingsPage() {
   style="position: fixed; bottom: 20px; right: 20px; width: 380px; height: 620px; border: none; z-index: 999999; border-radius: 24px; box-shadow: 0 20px 60px -15px rgba(0,0,0,0.35);"
   allow="clipboard-write">
 </iframe>`
-    : '<!-- Widget URL not ready yet. Save your settings first. -->'
+    : '<!-- Please save your settings first to generate the embed code -->'
 
-  // Show loading while determining user/org
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -232,11 +228,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 pb-20">
+    <div className="max-w-6xl mx-auto px-4 py-6 md:py-8 space-y-8 pb-20">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Widget Settings</h1>
-          <p className="text-muted-foreground">Customize appearance and install on your site</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Widget Settings</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Customize appearance and install on your site</p>
         </div>
         <Button 
           onClick={handleSave} 
@@ -248,13 +245,13 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
         {/* Settings Form */}
         <div className="lg:col-span-7 space-y-6">
           <Tabs defaultValue="design" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-muted/60 p-1 rounded-2xl">
-              <TabsTrigger value="design" className="rounded-xl py-3">Design</TabsTrigger>
-              <TabsTrigger value="installation" className="rounded-xl py-3">Installation</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-muted/60 p-1 rounded-2xl h-12">
+              <TabsTrigger value="design" className="rounded-xl py-3 text-sm">Design</TabsTrigger>
+              <TabsTrigger value="installation" className="rounded-xl py-3 text-sm">Installation</TabsTrigger>
             </TabsList>
 
             <TabsContent value="design" className="space-y-6 mt-6">
@@ -277,7 +274,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <ColorPicker label="Primary Color" value={primaryColor} onChange={setPrimaryColor} field="primary" />
                     <ColorPicker label="Accent Color" value={accentColor} onChange={setAccentColor} field="accent" />
                   </div>
@@ -334,13 +331,13 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <pre className="bg-zinc-950 text-zinc-100 p-5 rounded-2xl overflow-x-auto text-sm font-mono leading-relaxed whitespace-pre-wrap">
+                  <pre className="bg-zinc-950 text-zinc-100 p-5 rounded-2xl overflow-x-auto text-xs md:text-sm font-mono leading-relaxed whitespace-pre-wrap">
                     {embedCode}
                   </pre>
 
                   <Button 
                     onClick={() => {
-                      if (embedCode.includes('Widget URL')) {
+                      if (!widgetUrl) {
                         toast({ title: "Save settings first" })
                         return
                       }
@@ -359,7 +356,7 @@ export default function SettingsPage() {
           </Tabs>
         </div>
 
-        {/* Live Preview - Safe rendering */}
+        {/* Live Preview - Optimized for Mobile */}
         <div className="lg:col-span-5 lg:sticky lg:top-8">
           <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-white">
             <CardHeader className="border-b bg-muted/30">
@@ -368,8 +365,8 @@ export default function SettingsPage() {
                 <span className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Real-time</span>
               </div>
             </CardHeader>
-            <CardContent className="p-8 flex justify-center bg-zinc-50 min-h-[500px] lg:min-h-[620px]">
-              <div className="scale-[0.85] sm:scale-90 lg:scale-100 origin-top">
+            <CardContent className="p-6 md:p-8 flex justify-center bg-zinc-50 min-h-[480px] md:min-h-[620px]">
+              <div className="scale-[0.78] sm:scale-[0.85] md:scale-90 lg:scale-100 origin-top">
                 <ChatPreview
                   primaryColor={primaryColor}
                   accentColor={accentColor}
