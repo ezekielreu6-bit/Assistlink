@@ -18,7 +18,13 @@ import { sendNewSupportNotification } from '@/lib/email-action';
 
 export async function POST(req: Request) {
   try {
-    const { message, orgId, sessionId } = await req.json();
+    const { 
+      message, 
+      orgId, 
+      sessionId,
+      customerName,   // ← New
+      customerEmail   // ← New
+    } = await req.json();
 
     if (!message?.trim() || !orgId || !sessionId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -93,7 +99,16 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. Update session metadata
+    // 5. Save the user message with customer info (if provided)
+    await addDoc(messagesRef, {
+      role: 'user',
+      content: trimmedMessage,
+      createdAt: serverTimestamp(),
+      customerName: customerName || null,
+      customerEmail: customerEmail || null,
+    });
+
+    // 6. Update session metadata + store customer info
     const sessionRef = doc(db, 'organizations', orgId, 'chatSessions', sessionId);
     await updateDoc(sessionRef, {
       lastMessage: trimmedMessage,
@@ -101,9 +116,11 @@ export async function POST(req: Request) {
       lastMessageBy: 'user',
       status: 'active',
       hasAutoReply: !!autoReplyContent,
+      customerName: customerName || null,      // ← Save here
+      customerEmail: customerEmail || null,    // ← Save here
     });
 
-    // 6. 🔥 NEW: Notify organization owner about new customer message
+    // 7. Notify organization owner
     try {
       const orgRef = doc(db, 'organizations', orgId);
       const orgSnap = await getDoc(orgRef);
@@ -114,7 +131,7 @@ export async function POST(req: Request) {
         if (ownerEmail) {
           await sendNewSupportNotification(
             ownerEmail,
-            "Customer", 
+            customerName || "Customer",
             trimmedMessage.length > 90 
               ? trimmedMessage.substring(0, 87) + "..." 
               : trimmedMessage,
@@ -125,10 +142,8 @@ export async function POST(req: Request) {
       }
     } catch (notifyError) {
       console.error("Failed to send owner notification:", notifyError);
-      // We don't want this to break the chat flow
     }
 
-    // 7. Return success
     return NextResponse.json({
       success: true,
       suggestions,
