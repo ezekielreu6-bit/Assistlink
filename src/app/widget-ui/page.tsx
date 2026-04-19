@@ -13,15 +13,16 @@ function WidgetContent() {
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
 
-  // Widget Customization State
+  // Widget Customization
   const [settings, setSettings] = useState({
     companyName: 'Support',
     showBranding: true,
     welcomeMessage: 'Hi! How can we help you today?',
-    // Add more premium options later (avatar, position, etc.)
   })
 
   const orgId = searchParams?.get('id') || 'default'
+  const domain = searchParams?.get('domain') || window.location.hostname.replace(/[^a-zA-Z0-9]/g, '_') || 'default'
+
   const primaryColor = `#${searchParams?.get('primary') || '3333CC'}`
   const accentColor = `#${searchParams?.get('accent') || '1FBAF5'}`
 
@@ -38,13 +39,11 @@ function WidgetContent() {
 
         if (configSnap.exists()) {
           const data = configSnap.data()
-          setSettings(prev => ({
-            ...prev,
+          setSettings({
             companyName: data.companyName || 'Support',
-            showBranding: data.plan !== 'pro', // Only Pro hides branding
+            showBranding: data.plan !== 'pro',
             welcomeMessage: data.welcomeMessage || 'Hi! How can we help you today?',
-            // You can add more fields here (e.g. avatarUrl, position: 'bottom-right')
-          }))
+          })
         }
       } catch (err) {
         console.error("Error loading widget settings:", err)
@@ -54,18 +53,21 @@ function WidgetContent() {
     fetchWidgetSettings()
   }, [isMounted, orgId])
 
-  // Session Persistence (unchanged - good)
+  // Session Persistence - UNIQUE PER WEBSITE (using domain)
   useEffect(() => {
-    if (!isMounted) return
-    let sId = localStorage.getItem(`al_session_${orgId}`)
+    if (!isMounted || !orgId) return
+
+    const sessionKey = `al_session_\( {orgId}_ \){domain}`
+
+    let sId = localStorage.getItem(sessionKey)
     if (!sId) {
       sId = `sess_\( {Date.now().toString(36)} \){Math.random().toString(36).substring(2)}`
-      localStorage.setItem(`al_session_${orgId}`, sId)
+      localStorage.setItem(sessionKey, sId)
     }
     setSessionId(sId)
-  }, [isMounted, orgId])
+  }, [isMounted, orgId, domain])
 
-  // Listen for Messages (improved welcome logic)
+  // Listen for Messages
   useEffect(() => {
     if (!isMounted || !sessionId || !orgId || !db) return
 
@@ -84,32 +86,37 @@ function WidgetContent() {
     return () => unsubscribe()
   }, [isMounted, sessionId, orgId, settings.welcomeMessage])
 
-  const handleSendMessage = async (content: string) => {
+  // Handle Send Message - Now supports customer info
+  const handleSendMessage = async (content: string, customerInfo?: { name: string; email: string }) => {
     if (!content.trim() || !sessionId || !db) return
 
     setLoading(true)
 
     try {
       const colRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages')
+
       await addDoc(colRef, {
         role: 'user',
         content: content.trim(),
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        customerName: customerInfo?.name || null,
+        customerEmail: customerInfo?.email || null,
       })
 
-      // Call your AI/backend endpoint
+      // Call backend
       await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: content.trim(), 
           orgId, 
-          sessionId 
+          sessionId,
+          customerName: customerInfo?.name,
+          customerEmail: customerInfo?.email
         })
       })
     } catch (error) {
       console.error("Failed to send message:", error)
-      // Optional: show error toast in ChatPreview
     } finally {
       setLoading(false)
     }
@@ -128,7 +135,6 @@ function WidgetContent() {
         messages={messages} 
         onSendMessage={handleSendMessage}
         isTyping={loading}
-        // Pass more props later: avatar, borderRadius, etc.
       />
     </div>
   )
