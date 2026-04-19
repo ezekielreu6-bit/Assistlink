@@ -21,6 +21,9 @@ interface ChatPreviewProps {
   onSendMessage?: (message: string, customerInfo?: { name: string; email: string }) => void
   isTyping?: boolean
   showBranding?: boolean
+  // NEW: Controlled props from parent
+  showLeadForm?: boolean
+  onLeadFormSubmit?: (info: { name: string; email: string }) => void
 }
 
 export function ChatPreview({
@@ -32,11 +35,13 @@ export function ChatPreview({
   onSendMessage,
   isTyping = false,
   showBranding = true,
+  // NEW: Controlled props
+  showLeadForm = true,
+  onLeadFormSubmit,
 }: ChatPreviewProps) {
   const [inputValue, setInputValue] = useState('')
-  const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [isFirstMessage, setIsFirstMessage] = useState(true) // Simple flag
+  const [localName, setLocalName] = useState('')
+  const [localEmail, setLocalEmail] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -51,27 +56,25 @@ export function ChatPreview({
   const handleSend = () => {
     if (!inputValue.trim() || !onSendMessage) return
 
-    // For the very first message, require name and email
-    if (isFirstMessage) {
-      if (!customerName.trim() || !customerEmail.trim()) {
+    let customerInfo: { name: string; email: string } | undefined = undefined
+
+    if (showLeadForm) {
+      if (!localName.trim() || !localEmail.trim()) {
         alert("Please enter your name and email before sending your first message.")
         return
       }
+      customerInfo = {
+        name: localName.trim(),
+        email: localEmail.trim(),
+      }
+      // Notify parent to hide the form permanently
+      if (onLeadFormSubmit) {
+        onLeadFormSubmit(customerInfo)
+      }
     }
 
-    const customerInfo = isFirstMessage ? {
-      name: customerName.trim(),
-      email: customerEmail.trim()
-    } : undefined
-
-    // Send the message
     onSendMessage(inputValue.trim(), customerInfo)
     setInputValue('')
-
-    // After first message is sent, hide the form permanently
-    if (isFirstMessage) {
-      setIsFirstMessage(false)
-    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -120,7 +123,7 @@ export function ChatPreview({
               {msg.content}
             </div>
           </div>
-        ))}
+        ))
 
         {isTyping && (
           <div className="flex items-start gap-3">
@@ -136,8 +139,8 @@ export function ChatPreview({
         )}
       </div>
 
-      {/* Lead Capture Form - Shown only for the first message */}
-      {isFirstMessage && messages.length === 0 && (
+      {/* Lead Capture Form - Controlled by parent */}
+      {showLeadForm && messages.length === 0 && (
         <div className="p-4 border-t bg-white space-y-3">
           <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
           
@@ -146,8 +149,8 @@ export function ChatPreview({
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Your full name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+                value={localName}
+                onChange={(e) => setLocalName(e.target.value)}
                 className="pl-10 rounded-xl"
               />
             </div>
@@ -156,8 +159,8 @@ export function ChatPreview({
               <Input
                 type="email"
                 placeholder="your@email.com"
-                value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
+                value={localEmail}
+                onChange={(e) => setLocalEmail(e.target.value)}
                 className="pl-10 rounded-xl"
               />
             </div>
@@ -172,14 +175,14 @@ export function ChatPreview({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isFirstMessage ? "Type your first message..." : "Type your message..."}
+            placeholder={showLeadForm ? "Type your first message..." : "Type your message..."}
             className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary"
             disabled={isTyping}
           />
 
           <Button
             onClick={handleSend}
-            disabled={!inputValue.trim() || isTyping || (isFirstMessage && (!customerName.trim() || !customerEmail.trim()))}
+            disabled={!inputValue.trim() || isTyping || (showLeadForm && (!localName.trim() || !localEmail.trim()))}
             size="icon"
             className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl transition-all active:scale-95"
             style={{ backgroundColor: primaryColor }}
