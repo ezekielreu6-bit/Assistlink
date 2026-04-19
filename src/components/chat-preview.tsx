@@ -21,6 +21,7 @@ interface ChatPreviewProps {
   onSendMessage?: (message: string, customerInfo?: { name: string; email: string }) => void
   isTyping?: boolean
   showBranding?: boolean
+  sessionId?: string | null   // NEW: pass sessionId from parent
 }
 
 export function ChatPreview({
@@ -32,11 +33,21 @@ export function ChatPreview({
   onSendMessage,
   isTyping = false,
   showBranding = true,
+  sessionId,
 }: ChatPreviewProps) {
   const [inputValue, setInputValue] = useState('')
   const [localName, setLocalName] = useState('')
   const [localEmail, setLocalEmail] = useState('')
+  const [hasCompletedLeadForm, setHasCompletedLeadForm] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    if (!sessionId) return
+    const key = `leadFormCompleted_${sessionId}`
+    const completed = localStorage.getItem(key) === 'true'
+    setHasCompletedLeadForm(completed)
+  }, [sessionId])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -49,13 +60,19 @@ export function ChatPreview({
 
     let customerInfo: { name: string; email: string } | undefined = undefined
 
-    // Only require name/email on the very first message
-    if (messages.length === 0) {
+    // Only show lead form if not completed yet
+    if (!hasCompletedLeadForm) {
       if (!localName.trim() || !localEmail.trim()) {
         alert("Please enter your name and email before sending your first message.")
         return
       }
       customerInfo = { name: localName.trim(), email: localEmail.trim() }
+
+      // Mark as completed and save to localStorage
+      setHasCompletedLeadForm(true)
+      if (sessionId) {
+        localStorage.setItem(`leadFormCompleted_${sessionId}`, 'true')
+      }
     }
 
     onSendMessage(inputValue.trim(), customerInfo)
@@ -68,6 +85,8 @@ export function ChatPreview({
       handleSend()
     }
   }
+
+  const showLeadForm = !hasCompletedLeadForm
 
   return (
     <Card className="w-[360px] sm:w-[380px] h-[480px] overflow-hidden flex flex-col shadow-2xl border-0 rounded-3xl bg-white">
@@ -125,8 +144,8 @@ export function ChatPreview({
         )}
       </div>
 
-      {/* Lead Capture Form - Only shows when no messages yet */}
-      {messages.length === 0 && (
+      {/* Lead Capture Form - Only shows if not completed yet */}
+      {showLeadForm && (
         <div className="p-4 border-t bg-white space-y-3">
           <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
           <div className="space-y-3">
@@ -160,13 +179,13 @@ export function ChatPreview({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={messages.length === 0 ? "Type your first message..." : "Type your message..."}
+            placeholder={showLeadForm ? "Type your first message..." : "Type your message..."}
             className="pr-14 py-6 text-base rounded-2xl border-gray-200 bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary"
             disabled={isTyping}
           />
           <Button
             onClick={handleSend}
-            disabled={!inputValue.trim() || isTyping || (messages.length === 0 && (!localName.trim() || !localEmail.trim()))}
+            disabled={!inputValue.trim() || isTyping || (showLeadForm && (!localName.trim() || !localEmail.trim()))}
             size="icon"
             className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl transition-all active:scale-95"
             style={{ backgroundColor: primaryColor }}
