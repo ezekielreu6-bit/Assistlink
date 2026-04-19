@@ -1,10 +1,9 @@
 "use client"
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, Suspense, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -34,6 +33,7 @@ function ChatContent() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [orgId, setOrgId] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Fetch correct orgId for both owners and invited agents
   useEffect(() => {
@@ -78,19 +78,28 @@ function ChatContent() {
 
   const sessionsResult = useCollection(sessionsQuery)
   const sessions = sessionsResult?.data || []
-  const sessionsLoading = sessionsResult?.isLoading || true
+  const sessionsLoading = sessionsResult?.isLoading ?? false
 
   // Messages for selected session
   const messagesQuery = useMemoFirebase(() => {
     if (!db || !orgId || !selectedSessionId) return null
     return query(
       collection(db, 'organizations', orgId, 'chatSessions', selectedSessionId, 'chatMessages'),
-      orderBy('timestamp', 'asc')
+      orderBy('createdAt', 'asc')   // ← Fixed: matches widget
     )
   }, [db, orgId, selectedSessionId])
 
   const messagesResult = useCollection(messagesQuery)
-  const messages = messagesResult?.data || []
+  const rawMessages = messagesResult?.data || []
+
+  // Normalize messages (support both old and new schema)
+  const messages = rawMessages.map((msg: any) => ({
+    id: msg.id,
+    role: msg.role || (msg.senderType === 'agent' ? 'assistant' : 'user'),
+    content: msg.content,
+    senderType: msg.senderType || (msg.role === 'assistant' ? 'agent' : 'user'),
+    createdAt: msg.createdAt || msg.timestamp,
+  }))
 
   const sessionRef = useMemoFirebase(() => 
     (db && orgId && selectedSessionId) 
@@ -100,6 +109,13 @@ function ChatContent() {
   )
   const activeSessionResult = useDoc(sessionRef)
   const activeSession = activeSessionResult?.data
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages])
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !selectedSessionId || !user || !db || !orgId) return
@@ -113,7 +129,7 @@ function ChatContent() {
         content,
         senderType: 'agent',
         senderEmail: user.email,
-        timestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),   // ← Fixed: use createdAt
       })
 
       await updateDoc(doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId), {
@@ -183,9 +199,14 @@ function ChatContent() {
                   <AvatarFallback>{session.customerName?.[0] || 'C'}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between">
-                    <p className="font-medium truncate">{session.customerName || 'Anonymous'}</p>
-                    <span className="text-xs text-muted-foreground">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium truncate">{session.customerName || 'Anonymous'}</p>
+                      {session.customerEmail && (
+                        <p className="text-xs text-muted-foreground truncate">{session.customerEmail}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
                       {session.updatedAt ? formatDistanceToNow(session.updatedAt.toDate()) : 'New'}
                     </span>
                   </div>
@@ -213,6 +234,9 @@ function ChatContent() {
               </Avatar>
               <div>
                 <h3 className="font-semibold">{activeSession?.customerName || 'Customer'}</h3>
+                {activeSession?.customerEmail && (
+                  <p className="text-xs text-muted-foreground">{activeSession.customerEmail}</p>
+                )}
                 <p className="text-xs text-muted-foreground">Live Chat</p>
               </div>
             </div>
@@ -231,26 +255,27 @@ function ChatContent() {
           {/* Messages Area */}
           <ScrollArea className="flex-1 p-6 bg-zinc-50">
             <div className="space-y-6">
-              {messages.map((msg: any, idx: number) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    "flex",
-                    msg.senderType === 'agent' ? "justify-end" : "justify-start"
-                  )}
-                >
+              {messages.map((msg: any, idx: number) => {
+                const isAgent = msg.senderType === 'agent' || msg.role === 'assistant'
+                return (
                   <div
-                    className={cn(
-                      "max-w-[75%] px-4 py-3 rounded-3xl text-sm",
-                      msg.senderType === 'agent' 
-                        ? "bg-primary text-white rounded-tr-none" 
-                        : "bg-white border rounded-tl-none"
-                    )}
+                    key={idx}
+                    className={cn("flex", isAgent ? "justify-end" : "justify-start")}
                   >
-                    {msg.content}
+                    <div
+                      className={cn(
+                        "max-w-[75%] px-4 py-3 rounded-3xl text-sm",
+                        isAgent 
+                          ? "bg-primary text-white rounded-tr-none" 
+                          : "bg-white border rounded-tl-none"
+                      )}
+                    >
+                      {msg.content}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
+              <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
 
