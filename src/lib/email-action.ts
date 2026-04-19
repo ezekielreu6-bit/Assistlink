@@ -3,36 +3,40 @@
 import nodemailer from 'nodemailer';
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://assistlink-bit.vercel.app';
-// Ensure you have a logo.png in your public folder, or use a hosted URL
-const logoUrl = `/logo.png`; 
 
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com', 
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: true, 
+    secure: true,
     auth: {
-      user: process.env.SMTP_USER, 
-      pass: process.env.SMTP_PASS, 
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
     },
   });
 };
 
-// Common Email Wrapper for styling
-const emailTemplate = (content: string) => `
-  <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #f9fafb;">
-    <div style="background-color: #ffffff; border-radius: 24px; padding: 40px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); border: 1px solid #e5e7eb;">
+// Beautiful Email Template
+const emailTemplate = (title: string, content: string) => `
+  <div style="font-family: 'Segoe UI', system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background: #f9fafb;">
+    <div style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid #f1f5f9;">
+      
+      <!-- Logo / Header -->
       <div style="text-align: center; margin-bottom: 32px;">
-        <div style="background-color: #3333CC; width: 48px; height: 48px; border-radius: 12px; display: inline-block; margin-bottom: 16px; line-height: 48px; color: white; font-weight: bold; font-size: 24px;">A</div>
-        <h1 style="margin: 0; color: #111827; font-size: 24px; font-weight: 800; letter-spacing: -0.025em;">AssistLink</h1>
+        <div style="background: #3333CC; width: 56px; height: 56px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+          <span style="color: white; font-size: 28px; font-weight: bold;">A</span>
+        </div>
+        <h1 style="margin: 0; color: #111827; font-size: 26px; font-weight: 800;">AssistLink</h1>
       </div>
+
+      <h2 style="color: #111827; text-align: center; font-size: 22px; margin-bottom: 24px;">${title}</h2>
+      
       ${content}
-      <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
-        <p style="margin: 0; color: #6b7280; font-size: 12px;">
-          &copy; ${new Date().getFullYear()} AssistLink AI. All rights reserved.
-        </p>
-        <p style="margin: 4px 0 0; color: #9ca3af; font-size: 11px;">
-          Real-time customer support, simplified.
+
+      <!-- Footer -->
+      <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
+        <p style="color: #6b7280; font-size: 13px; margin: 0;">
+          © ${new Date().getFullYear()} AssistLink • Real-time AI Customer Support
         </p>
       </div>
     </div>
@@ -40,62 +44,83 @@ const emailTemplate = (content: string) => `
 `;
 
 /**
- * Notification for new chat messages
+ * Send notification to organization owner when a customer sends a new message
  */
-export async function sendChatNotification(toEmail: string, customerName: string, sessionId: string) {
+export async function sendNewSupportNotification(
+  ownerEmail: string,
+  customerName: string,
+  messagePreview: string,
+  sessionId: string,
+  orgId: string
+) {
   try {
     const transporter = createTransporter();
-    const chatLink = `${appUrl}/dashboard/chat?session=${sessionId}`;
+    const dashboardLink = `\( {appUrl}/dashboard/chat?session= \){sessionId}`;
 
     const content = `
-      <div style="text-align: center;">
-        <h2 style="color: #111827; font-size: 20px; font-weight: 700; margin-bottom: 16px;">New Support Request</h2>
-        <p style="color: #4b5563; font-size: 16px; line-height: 24px; margin-bottom: 32px;">
-          <strong>${customerName}</strong> is waiting for a response on your website. Don't keep them waiting!
+      <div style="text-align: center; margin-bottom: 32px;">
+        <p style="font-size: 17px; color: #374151; margin-bottom: 8px;">
+          <strong>${customerName}</strong> just sent a message and is waiting for support.
         </p>
-        <a href="${chatLink}" style="display: inline-block; background-color: #3333CC; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; transition: background-color 0.2s;">
-          Open Chat Dashboard
+        <div style="background: #f8fafc; padding: 16px; border-radius: 12px; margin: 20px 0; text-align: left; border-left: 4px solid #3333CC;">
+          <p style="margin: 0; color: #4b5563; font-size: 15px;">"${messagePreview}"</p>
+        </div>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${dashboardLink}" 
+           style="display: inline-block; background: #3333CC; color: white; padding: 16px 36px; 
+                  text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px;">
+          Reply Now →
         </a>
       </div>
     `;
 
     await transporter.sendMail({
-      from: `"AssistLink" <${process.env.SMTP_USER}>`,
-      to: toEmail,
-      subject: `💬 New Message from ${customerName}`,
-      html: emailTemplate(content),
+      from: `"AssistLink Notifications" <${process.env.SMTP_USER}>`,
+      to: ownerEmail,
+      subject: `🔔 New Message from ${customerName}`,
+      html: emailTemplate("New Support Request", content),
     });
 
+    console.log(`✅ Notification sent to ${ownerEmail}`);
     return { success: true };
   } catch (error) {
-    console.error("Notification Error:", error);
-    return { success: false };
+    console.error("Failed to send support notification:", error);
+    return { success: false, error };
   }
 }
 
 /**
- * Invitation for new team members with Unique ID
+ * Send team invitation (your existing function - improved)
  */
-export async function sendTeamInvitation(toEmail: string, role: string, inviterName: string, inviteId: string) {
+export async function sendTeamInvitation(
+  toEmail: string, 
+  role: string, 
+  inviterName: string, 
+  inviteId: string
+) {
   try {
     const transporter = createTransporter();
-    const inviteLink = `${appUrl}/invite/${inviteId}`;
+    const inviteLink = `\( {appUrl}/invite/ \){inviteId}`;
 
     const content = `
       <div style="text-align: center;">
-        <h2 style="color: #111827; font-size: 20px; font-weight: 700; margin-bottom: 16px;">You're Invited!</h2>
-        <p style="color: #4b5563; font-size: 16px; line-height: 24px; margin-bottom: 8px;">
-          <strong>${inviterName}</strong> has invited you to join their support team on AssistLink.
+        <h2 style="color: #111827; font-size: 22px; margin-bottom: 16px;">You've been invited!</h2>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+          <strong>\( {inviterName}</strong> invited you to join their team as a <strong> \){role}</strong> on AssistLink.
         </p>
-        <div style="display: inline-block; background-color: #f3f4f6; padding: 6px 12px; border-radius: 8px; margin-bottom: 32px;">
-          <span style="color: #374151; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Role: ${role}</span>
+        
+        <div style="margin: 32px 0;">
+          <a href="${inviteLink}" 
+             style="display: inline-block; background: #3333CC; color: white; padding: 16px 40px; 
+                    text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px;">
+            Accept Invitation
+          </a>
         </div>
-        <br />
-        <a href="${inviteLink}" style="display: inline-block; background-color: #3333CC; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px;">
-          Accept Invitation
-        </a>
-        <p style="color: #9ca3af; font-size: 13px; margin-top: 32px;">
-          If you don't have an account yet, you'll be asked to create one after clicking the button.
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          If you don’t have an account yet, you’ll be guided to create one.
         </p>
       </div>
     `;
@@ -104,12 +129,12 @@ export async function sendTeamInvitation(toEmail: string, role: string, inviterN
       from: `"AssistLink Team" <${process.env.SMTP_USER}>`,
       to: toEmail,
       subject: `🚀 Join ${inviterName}'s team on AssistLink`,
-      html: emailTemplate(content),
+      html: emailTemplate("Team Invitation", content),
     });
 
     return { success: true };
   } catch (error) {
-    console.error("Invitation Error:", error);
+    console.error("Invitation email failed:", error);
     return { success: false };
   }
 }
