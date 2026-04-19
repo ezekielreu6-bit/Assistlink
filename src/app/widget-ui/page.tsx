@@ -9,11 +9,9 @@ import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, g
 function WidgetContent() {
   const searchParams = useSearchParams()
   const [isMounted, setIsMounted] = useState(false)
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([])
+  const [messages, setMessages] = useState<{role: string, content: string}[]>([])
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
-
-  const [showLeadForm, setShowLeadForm] = useState(true)
   const [customerInfo, setCustomerInfo] = useState<{ name: string; email: string } | null>(null)
 
   const [settings, setSettings] = useState({
@@ -30,6 +28,7 @@ function WidgetContent() {
 
   useEffect(() => { setIsMounted(true) }, [])
 
+  // Fetch Organization Settings
   useEffect(() => {
     if (!isMounted || !orgId || !db) return
 
@@ -37,6 +36,7 @@ function WidgetContent() {
       try {
         const configRef = doc(db, 'organizations', orgId, 'chatWidgetConfigurations', 'default')
         const configSnap = await getDoc(configRef)
+
         if (configSnap.exists()) {
           const data = configSnap.data()
           setSettings({
@@ -49,9 +49,11 @@ function WidgetContent() {
         console.error("Error loading widget settings:", err)
       }
     }
+
     fetchWidgetSettings()
   }, [isMounted, orgId])
 
+  // Session Persistence
   useEffect(() => {
     if (!isMounted || !orgId) return
 
@@ -64,6 +66,7 @@ function WidgetContent() {
     setSessionId(sId)
   }, [isMounted, orgId, domain])
 
+  // Listen for Messages
   useEffect(() => {
     if (!isMounted || !sessionId || !orgId || !db) return
 
@@ -75,24 +78,23 @@ function WidgetContent() {
         role: doc.data().role,
         content: doc.data().content
       }))
+
       setMessages(msgs.length > 0 ? msgs : [{ role: 'assistant', content: settings.welcomeMessage }])
     }, (err) => console.error("Firestore Listen Error:", err))
 
     return () => unsubscribe()
   }, [isMounted, sessionId, orgId, settings.welcomeMessage])
 
-  const handleLeadFormSubmit = (info: { name: string; email: string }) => {
-    setShowLeadForm(false)
-    setCustomerInfo(info)
-  }
-
-  const handleSendMessage = async (content: string, customerInfoFromChild?: { name: string; email: string }) => {
+  const handleSendMessage = async (content: string, info?: { name: string; email: string }) => {
     if (!content.trim() || !sessionId || !db) return
+
     setLoading(true)
 
     try {
       const colRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages')
-      const finalInfo = customerInfoFromChild || customerInfo
+
+      // Save customer info on first message only
+      const finalInfo = info || customerInfo
 
       await addDoc(colRef, {
         role: 'user',
@@ -102,12 +104,15 @@ function WidgetContent() {
         customerEmail: finalInfo?.email || null,
       })
 
+      // Store info for future messages in this session
+      if (info) setCustomerInfo(info)
+
       await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: content.trim(),
-          orgId,
+        body: JSON.stringify({ 
+          message: content.trim(), 
+          orgId, 
           sessionId,
           customerName: finalInfo?.name,
           customerEmail: finalInfo?.email
@@ -124,17 +129,15 @@ function WidgetContent() {
 
   return (
     <div className="w-full h-screen bg-transparent flex items-end justify-end p-6 md:p-8">
-      <ChatPreview
-        primaryColor={primaryColor}
+      <ChatPreview 
+        primaryColor={primaryColor} 
         accentColor={accentColor}
         companyName={settings.companyName}
         welcomeMessage={settings.welcomeMessage}
         showBranding={settings.showBranding}
-        messages={messages}
+        messages={messages} 
         onSendMessage={handleSendMessage}
         isTyping={loading}
-        showLeadForm={showLeadForm}
-        onLeadFormSubmit={handleLeadFormSubmit}
       />
     </div>
   )
