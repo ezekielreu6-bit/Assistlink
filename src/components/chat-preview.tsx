@@ -51,7 +51,7 @@ export function ChatPreview({
   const handleSend = () => {
     if (!inputValue.trim() || !onSendMessage) return
 
-    // If this is the first message, require name and email
+    // Require name and email for first message
     if (!hasProvidedInfo) {
       if (!customerName.trim() || !customerEmail.trim()) {
         alert("Please enter your name and email before sending your first message.")
@@ -67,7 +67,7 @@ export function ChatPreview({
     onSendMessage(inputValue.trim(), customerInfo)
     setInputValue('')
 
-    // Hide form after first message
+    // Hide form after successful first message
     if (!hasProvidedInfo) {
       setHasProvidedInfo(true)
     }
@@ -135,7 +135,7 @@ export function ChatPreview({
         )}
       </div>
 
-      {/* Lead Capture Form - Shown for first message */}
+      {/* Lead Capture Form - Only for first message */}
       {!hasProvidedInfo && messages.length === 0 && (
         <div className="p-4 border-t bg-white space-y-3">
           <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
