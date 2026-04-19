@@ -13,7 +13,8 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { agentSmartReplySuggestions } from '@/ai/flows/agent-smart-reply-suggestions-flow'; 
-import { generateAutoReply } from '@/ai/flows/generate-auto-reply-flow'; // ← Create this flow (I'll help below)
+import { generateAutoReply } from '@/ai/flows/generate-auto-reply-flow'; 
+import { sendNewSupportNotification } from '@/lib/email-action'; 
 
 export async function POST(req: Request) {
   try {
@@ -25,14 +26,14 @@ export async function POST(req: Request) {
 
     const trimmedMessage = message.trim();
 
-    // 1. Fetch organization config to check plan + custom instructions
+    // 1. Fetch organization config
     const configRef = doc(db, 'organizations', orgId, 'chatWidgetConfigurations', 'default');
     const configSnap = await getDoc(configRef);
     const config = configSnap.exists() ? configSnap.data() : {};
-    
-    const isPro = config.plan === 'pro' || config.plan === 'premium'; // adjust if you use different labels
 
-    // 2. Fetch rich conversation history (last 12 messages for better context)
+    const isPro = config.plan === 'pro' || config.plan === 'premium';
+
+    // 2. Fetch conversation history
     const messagesRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages');
     const historyQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(12));
     const snapshot = await getDocs(historyQuery);
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
       }))
       .reverse();
 
-    // 3. Always get smart suggestions for the agent dashboard
+    // 3. Get smart suggestions for agents
     let suggestions: string[] = [];
     try {
       const result = await agentSmartReplySuggestions({
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
       suggestions = ["I'll look into this and get back to you soon."];
     }
 
-    // 4. Pro-only: Generate and send AI auto-reply instantly
+    // 4. Pro-only AI Auto-reply
     let autoReplyContent: string | null = null;
 
     if (isPro) {
@@ -73,25 +74,22 @@ export async function POST(req: Request) {
             companyName: config.companyName || 'Support',
             welcomeMessage: config.welcomeMessage,
             customInstructions: config.aiInstructions || '',
-            // Add any other fields you store (e.g. knowledge base reference)
           },
         });
 
         if (reply && reply.trim()) {
           autoReplyContent = reply.trim();
 
-          // Save the AI reply to Firestore so widget sees it in real-time
           await addDoc(messagesRef, {
             role: 'assistant',
             content: autoReplyContent,
             createdAt: serverTimestamp(),
-            isAutoReply: true,        // flag for dashboard/UI
+            isAutoReply: true,
             generatedBy: 'ai',
           });
         }
       } catch (autoReplyError) {
         console.error("Auto-reply generation failed:", autoReplyError);
-        // Don't fail the whole request — still save user message
       }
     }
 
@@ -102,15 +100,39 @@ export async function POST(req: Request) {
       lastMessageAt: serverTimestamp(),
       lastMessageBy: 'user',
       status: 'active',
-      hasAutoReply: !!autoReplyContent,   // useful for agent view
+      hasAutoReply: !!autoReplyContent,
     });
 
-    // 6. Return success
+    // 6. 🔥 NEW: Notify organization owner about new customer message
+    try {
+      const orgRef = doc(db, 'organizations', orgId);
+      const orgSnap = await getDoc(orgRef);
+
+      if (orgSnap.exists()) {
+        const ownerEmail = orgSnap.data().ownerEmail || orgSnap.data().email;
+
+        if (ownerEmail) {
+          await sendNewSupportNotification(
+            ownerEmail,
+            "Customer", 
+            trimmedMessage.length > 90 
+              ? trimmedMessage.substring(0, 87) + "..." 
+              : trimmedMessage,
+            sessionId,
+            orgId
+          );
+        }
+      }
+    } catch (notifyError) {
+      console.error("Failed to send owner notification:", notifyError);
+      // We don't want this to break the chat flow
+    }
+
+    // 7. Return success
     return NextResponse.json({
       success: true,
       suggestions,
       autoReplySent: !!autoReplyContent,
-      // You can return the reply for debugging, but widget gets it via Firestore listener
     });
 
   } catch (error) {
