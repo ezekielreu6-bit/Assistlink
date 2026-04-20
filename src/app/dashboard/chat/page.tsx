@@ -28,17 +28,21 @@ function ChatContent() {
   const db = useFirestore()
   const { toast } = useToast()
   const searchParams = useSearchParams()
-  const querySessionId = searchParams.get('session')
+  const querySessionId = searchParams?.get('session') || null
 
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [orgId, setOrgId] = useState<string | null>(null)
+  const [isLoadingOrg, setIsLoadingOrg] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Fetch correct orgId
   useEffect(() => {
     async function getOrgContext() {
-      if (!user?.email || !db) return
+      if (!user?.email || !db) {
+        setIsLoadingOrg(false)
+        return
+      }
 
       try {
         const userEmail = user.email.toLowerCase().trim()
@@ -61,11 +65,18 @@ function ChatContent() {
         }
       } catch (error) {
         console.error("Error fetching org context:", error)
+        toast({ 
+          title: "Error loading organization", 
+          description: "Please try refreshing the page",
+          variant: "destructive" 
+        })
+      } finally {
+        setIsLoadingOrg(false)
       }
     }
 
     getOrgContext()
-  }, [user, db, querySessionId])
+  }, [user, db, querySessionId, toast])
 
   // Sessions list - only run when orgId exists
   const sessionsQuery = useMemoFirebase(() => {
@@ -137,7 +148,12 @@ function ChatContent() {
         lastReplyBy: 'agent'
       })
     } catch (error) {
-      toast({ title: "Failed to send message", variant: "destructive" })
+      console.error("Error sending message:", error)
+      toast({ 
+        title: "Failed to send message", 
+        description: "Please try again",
+        variant: "destructive" 
+      })
     }
   }
 
@@ -151,15 +167,33 @@ function ChatContent() {
       })
       toast({ title: "Session Resolved" })
     } catch (error) {
-      toast({ title: "Failed to resolve session", variant: "destructive" })
+      console.error("Error resolving session:", error)
+      toast({ 
+        title: "Failed to resolve session", 
+        description: "Please try again",
+        variant: "destructive" 
+      })
     }
   }
 
   // Main loading state
-  if (!orgId) {
+  if (isLoadingOrg || !db) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  // Error state if no orgId
+  if (!orgId) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <MessageSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Organization Not Found</h2>
+          <p className="text-muted-foreground">Unable to load your organization data.</p>
+        </div>
       </div>
     )
   }
@@ -206,7 +240,7 @@ function ChatContent() {
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {session.updatedAt ? formatDistanceToNow(session.updatedAt.toDate()) : 'New'}
+                      {session.updatedAt?.toDate ? formatDistanceToNow(session.updatedAt.toDate(), { addSuffix: true }) : 'New'}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
