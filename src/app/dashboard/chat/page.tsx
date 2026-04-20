@@ -78,7 +78,7 @@ function ChatContent() {
 
   const sessionsResult = useCollection(sessionsQuery)
   const sessions = sessionsResult?.data || []
-  const sessionsLoading = sessionsResult?.isLoading ?? false
+  const sessionsLoading = sessionsResult?.isLoading ?? true
 
   // Messages for selected session
   const messagesQuery = useMemoFirebase(() => {
@@ -92,13 +92,12 @@ function ChatContent() {
   const messagesResult = useCollection(messagesQuery)
   const rawMessages = messagesResult?.data || []
 
-  // Normalize messages (support both old and new schema)
-  const messages = rawMessages.map((msg: any, index: number) => ({
-    id: msg.id || `msg-${index}`,
+  // Normalize messages
+  const messages = rawMessages.map((msg: any) => ({
+    id: msg.id || Math.random().toString(36),
     role: msg.role || (msg.senderType === 'agent' ? 'assistant' : 'user'),
     content: msg.content || '',
     senderType: msg.senderType || (msg.role === 'assistant' ? 'agent' : 'user'),
-    createdAt: msg.createdAt || msg.timestamp,
   }))
 
   const sessionRef = useMemoFirebase(() => 
@@ -110,7 +109,7 @@ function ChatContent() {
   const activeSessionResult = useDoc(sessionRef)
   const activeSession = activeSessionResult?.data
 
-  // Auto-scroll to bottom
+  // Auto-scroll
   useEffect(() => {
     if (messagesEndRef.current && messages.length > 0) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
@@ -254,12 +253,12 @@ function ChatContent() {
           {/* Messages Area */}
           <ScrollArea className="flex-1 p-6 bg-zinc-50">
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="flex items-center justify-center h-full text-muted-foreground py-12">
                 No messages yet. Waiting for customer to start chatting...
               </div>
             ) : (
               <div className="space-y-6">
-                {messages.map((msg: any, idx: number) => {
+                {messages.map((msg: any) => {
                   const isAgent = msg.senderType === 'agent' || msg.role === 'assistant'
                   return (
                     <div
