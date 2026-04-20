@@ -35,7 +35,7 @@ function ChatContent() {
   const [orgId, setOrgId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Fetch correct orgId for both owners and invited agents
+  // Fetch correct orgId
   useEffect(() => {
     async function getOrgContext() {
       if (!user?.email || !db) return
@@ -67,7 +67,7 @@ function ChatContent() {
     getOrgContext()
   }, [user, db, querySessionId])
 
-  // Sessions list
+  // Sessions list - only run when orgId exists
   const sessionsQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
     return query(
@@ -80,7 +80,7 @@ function ChatContent() {
   const sessions = sessionsResult?.data || []
   const sessionsLoading = sessionsResult?.isLoading ?? true
 
-  // Messages for selected session
+  // Messages for selected session - only run when we have both orgId and selectedSessionId
   const messagesQuery = useMemoFirebase(() => {
     if (!db || !orgId || !selectedSessionId) return null
     return query(
@@ -155,6 +155,7 @@ function ChatContent() {
     }
   }
 
+  // Main loading state
   if (!orgId) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
