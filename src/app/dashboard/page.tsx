@@ -1,4 +1,3 @@
-
 "use client"
 
 import React from 'react'
@@ -23,13 +22,18 @@ import { cn } from '@/lib/utils'
 export default function DashboardOverview() {
   const { user } = useUser()
   const db = useFirestore()
+
+  // Safe orgId calculation
   const orgId = user?.email ? user.email.replace(/\./g, '_') : null
 
+  // Sessions queries - only run when orgId exists
   const sessionsQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
-    return query(collection(db, 'organizations', orgId, 'chatSessions'))
+    return query(
+      collection(db, 'organizations', orgId, 'chatSessions'),
+      orderBy('updatedAt', 'desc')
+    )
   }, [db, orgId])
-  const { data: allSessions } = useCollection(sessionsQuery)
 
   const activeSessionsQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
@@ -39,15 +43,21 @@ export default function DashboardOverview() {
       limit(5)
     )
   }, [db, orgId])
-  const { data: recentSessions, isLoading: loadingSessions } = useCollection(activeSessionsQuery)
 
-  const activeCount = allSessions?.filter(s => s.status !== 'resolved').length || 0
-  const resolvedCount = allSessions?.filter(s => s.status === 'resolved').length || 0
+  const allSessionsResult = useCollection(sessionsQuery)
+  const recentSessionsResult = useCollection(activeSessionsQuery)
+
+  const allSessions = allSessionsResult?.data || []
+  const recentSessions = recentSessionsResult?.data || []
+  const loadingSessions = allSessionsResult?.isLoading || recentSessionsResult?.isLoading || false
+
+  const activeCount = allSessions.filter(s => s.status !== 'resolved').length || 0
+  const resolvedCount = allSessions.filter(s => s.status === 'resolved').length || 0
 
   const stats = [
     { label: 'Active Chats', value: activeCount, icon: MessageSquare, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'Resolved (Total)', value: resolvedCount, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'Total Volume', value: allSessions?.length || 0, icon: Clock, color: 'text-accent', bg: 'bg-accent/10' },
+    { label: 'Total Volume', value: allSessions.length || 0, icon: Clock, color: 'text-accent', bg: 'bg-accent/10' },
     { label: 'Health Score', value: '98%', icon: ThumbsUp, color: 'text-orange-600', bg: 'bg-orange-50' },
   ]
 
@@ -73,7 +83,7 @@ export default function DashboardOverview() {
               <div className="flex items-center justify-between space-y-0 pb-2">
                 <p className="text-[10px] sm:text-sm font-medium text-muted-foreground truncate">{stat.label}</p>
                 <div className={cn("p-1.5 sm:p-2 rounded-lg sm:rounded-xl", stat.bg)}>
-                  <stat.icon className={cn("h-3 w-3 sm:h-4 sm:h-4", stat.color)} />
+                  <stat.icon className={cn("h-3 w-3 sm:h-4 sm:w-4", stat.color)} />
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
@@ -100,27 +110,39 @@ export default function DashboardOverview() {
           </CardHeader>
           <CardContent>
             {loadingSessions ? (
-              <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+              <div className="flex justify-center p-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
             ) : (
               <div className="space-y-4">
-                {recentSessions?.map((chat) => (
-                  <Link key={chat.id} href={`/dashboard/chat`} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-muted/30 transition-colors group">
+                {recentSessions?.map((chat: any) => (
+                  <Link 
+                    key={chat.id} 
+                    href={`/dashboard/chat?session=${chat.id}`} 
+                    className="flex items-center gap-4 p-3 rounded-2xl hover:bg-muted/30 transition-colors group"
+                  >
                     <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-white shadow-sm">
                       <AvatarFallback>{chat.customerName?.[0] || 'C'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
-                        <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{chat.customerName || 'Anonymous'}</p>
+                        <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+                          {chat.customerName || 'Anonymous'}
+                        </p>
                         <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
                           {chat.updatedAt ? formatDistanceToNow(chat.updatedAt.toDate()) : 'Now'}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-1 italic">"{chat.lastMessage || 'New session'}"</p>
+                      <p className="text-xs text-muted-foreground line-clamp-1 italic">
+                        "{chat.lastMessage || 'New session'}"
+                      </p>
                     </div>
                   </Link>
                 ))}
                 {(!recentSessions || recentSessions.length === 0) && (
-                  <p className="text-center text-muted-foreground text-sm py-8 italic">No recent messages.</p>
+                  <p className="text-center text-muted-foreground text-sm py-8 italic">
+                    No recent messages yet.
+                  </p>
                 )}
               </div>
             )}
@@ -130,14 +152,14 @@ export default function DashboardOverview() {
         <Card className="md:col-span-3 border-none shadow-sm bg-primary text-white overflow-hidden relative rounded-2xl">
           <div className="absolute top-[-20px] right-[-20px] w-40 h-40 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute bottom-[-20px] left-[-20px] w-32 h-32 bg-accent/20 rounded-full blur-2xl" />
-          
+
           <CardHeader className="relative">
             <CardTitle className="text-white text-lg">Quick Actions</CardTitle>
             <CardDescription className="text-white/70 text-xs">Manage your workspace easily.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 relative">
             <Button 
-              className="w-full bg-white text-primary hover:bg-white/90 justify-start h-11 sm:h-12 rounded-xl shadow-lg text-sm border-none"
+              className="w-full bg-white text-primary hover:bg-white/80 justify-start h-11 sm:h-12 rounded-xl shadow-lg text-sm border-none"
               asChild
             >
               <Link href="/dashboard/team">
@@ -162,7 +184,10 @@ export default function DashboardOverview() {
                 <span className="font-bold">{activeCount > 0 ? 'Active' : 'Idle'}</span>
               </div>
               <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-accent" style={{ width: allSessions?.length ? `${(resolvedCount / allSessions.length) * 100}%` : '0%' }} />
+                <div 
+                  className="h-full bg-accent" 
+                  style={{ width: allSessions.length ? `${(resolvedCount / allSessions.length) * 100}%` : '0%' }} 
+                />
               </div>
             </div>
           </CardContent>
