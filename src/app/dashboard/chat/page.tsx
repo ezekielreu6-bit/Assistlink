@@ -1,13 +1,13 @@
 "use client"
 
 import React, { useState, useEffect, Suspense, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, MessageSquare, CheckCircle2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useFirestore, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase'
 import { 
@@ -23,28 +23,37 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
 
-function ChatContent() {
-  const { user } = useUser()
+// Separate component for the content that uses searchParams
+function ChatPageContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user, loading: userLoading } = useUser()
   const db = useFirestore()
   const { toast } = useToast()
-  const searchParams = useSearchParams()
-  const querySessionId = searchParams?.get('session') || null
-
+  
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [orgId, setOrgId] = useState<string | null>(null)
   const [isLoadingOrg, setIsLoadingOrg] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Get session from URL safely
+  const querySessionId = searchParams?.get('session') || null
 
   // Fetch correct orgId
   useEffect(() => {
     async function getOrgContext() {
       if (!user?.email || !db) {
-        setIsLoadingOrg(false)
+        if (!userLoading && !user) {
+          setIsLoadingOrg(false)
+          setError("Please sign in to access the chat")
+        }
         return
       }
 
       try {
+        setError(null)
         const userEmail = user.email.toLowerCase().trim()
         const userDocRef = doc(db, 'users', userEmail)
         const userSnap = await getDoc(userDocRef)
@@ -63,8 +72,9 @@ function ChatContent() {
         if (querySessionId) {
           setSelectedSessionId(querySessionId)
         }
-      } catch (error) {
-        console.error("Error fetching org context:", error)
+      } catch (err) {
+        console.error("Error fetching org context:", err)
+        setError("Failed to load organization data")
         toast({ 
           title: "Error loading organization", 
           description: "Please try refreshing the page",
@@ -76,47 +86,62 @@ function ChatContent() {
     }
 
     getOrgContext()
-  }, [user, db, querySessionId, toast])
+  }, [user, userLoading, db, querySessionId, toast])
 
   // Sessions list - only run when orgId exists
   const sessionsQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
-    return query(
-      collection(db, 'organizations', orgId, 'chatSessions'),
-      orderBy('updatedAt', 'desc')
-    )
+    try {
+      return query(
+        collection(db, 'organizations', orgId, 'chatSessions'),
+        orderBy('updatedAt', 'desc')
+      )
+    } catch (err) {
+      console.error("Error creating sessions query:", err)
+      return null
+    }
   }, [db, orgId])
 
   const sessionsResult = useCollection(sessionsQuery)
   const sessions = sessionsResult?.data || []
   const sessionsLoading = sessionsResult?.isLoading ?? true
+  const sessionsError = sessionsResult?.error
 
-  // Messages for selected session - only run when we have both orgId and selectedSessionId
+  // Messages for selected session
   const messagesQuery = useMemoFirebase(() => {
     if (!db || !orgId || !selectedSessionId) return null
-    return query(
-      collection(db, 'organizations', orgId, 'chatSessions', selectedSessionId, 'chatMessages'),
-      orderBy('createdAt', 'asc')
-    )
+    try {
+      return query(
+        collection(db, 'organizations', orgId, 'chatSessions', selectedSessionId, 'chatMessages'),
+        orderBy('createdAt', 'asc')
+      )
+    } catch (err) {
+      console.error("Error creating messages query:", err)
+      return null
+    }
   }, [db, orgId, selectedSessionId])
 
   const messagesResult = useCollection(messagesQuery)
   const rawMessages = messagesResult?.data || []
 
-  // Normalize messages
+  // Normalize messages safely
   const messages = rawMessages.map((msg: any) => ({
-    id: msg.id || Math.random().toString(36),
-    role: msg.role || (msg.senderType === 'agent' ? 'assistant' : 'user'),
-    content: msg.content || '',
-    senderType: msg.senderType || (msg.role === 'assistant' ? 'agent' : 'user'),
+    id: msg?.id || Math.random().toString(36),
+    role: msg?.role || (msg?.senderType === 'agent' ? 'assistant' : 'user'),
+    content: msg?.content || '',
+    senderType: msg?.senderType || (msg?.role === 'assistant' ? 'agent' : 'user'),
   }))
 
-  const sessionRef = useMemoFirebase(() => 
-    (db && orgId && selectedSessionId) 
-      ? doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId) 
-      : null,
-    [db, orgId, selectedSessionId]
-  )
+  const sessionRef = useMemoFirebase(() => {
+    if (!db || !orgId || !selectedSessionId) return null
+    try {
+      return doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId)
+    } catch (err) {
+      console.error("Error creating session ref:", err)
+      return null
+    }
+  }, [db, orgId, selectedSessionId])
+  
   const activeSessionResult = useDoc(sessionRef)
   const activeSession = activeSessionResult?.data
 
@@ -147,13 +172,14 @@ function ChatContent() {
         updatedAt: serverTimestamp(),
         lastReplyBy: 'agent'
       })
-    } catch (error) {
-      console.error("Error sending message:", error)
+    } catch (err) {
+      console.error("Error sending message:", err)
       toast({ 
         title: "Failed to send message", 
         description: "Please try again",
         variant: "destructive" 
       })
+      setInputValue(content) // Restore input on error
     }
   }
 
@@ -166,8 +192,8 @@ function ChatContent() {
         updatedAt: serverTimestamp()
       })
       toast({ title: "Session Resolved" })
-    } catch (error) {
-      console.error("Error resolving session:", error)
+    } catch (err) {
+      console.error("Error resolving session:", err)
       toast({ 
         title: "Failed to resolve session", 
         description: "Please try again",
@@ -176,23 +202,67 @@ function ChatContent() {
     }
   }
 
-  // Main loading state
-  if (isLoadingOrg || !db) {
+  const handleBackToList = () => {
+    setSelectedSessionId(null)
+  }
+
+  const formatSessionTime = (timestamp: any) => {
+    if (!timestamp?.toDate) return 'New'
+    try {
+      return formatDistanceToNow(timestamp.toDate(), { addSuffix: true })
+    } catch (err) {
+      return 'Recently'
+    }
+  }
+
+  // Show loading state
+  if (userLoading || isLoadingOrg) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading chat...</p>
+        </div>
       </div>
     )
   }
 
-  // Error state if no orgId
-  if (!orgId) {
+  // Show error state
+  if (error || !user) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+          <p className="text-muted-foreground mb-4">{error || "Please sign in to access the chat dashboard"}</p>
+          <Button onClick={() => router.push('/login')}>Sign In</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show no database error
+  if (!db) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Connection Error</h2>
+          <p className="text-muted-foreground">Unable to connect to database. Please refresh the page.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show no org error
+  if (!orgId) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center max-w-md">
           <MessageSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Organization Not Found</h2>
-          <p className="text-muted-foreground">Unable to load your organization data.</p>
+          <p className="text-muted-foreground mb-4">Unable to load your organization data. Please contact support.</p>
+          <Button onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>
         </div>
       </div>
     )
@@ -210,13 +280,19 @@ function ChatContent() {
         </div>
 
         <ScrollArea className="flex-1">
-          {sessionsLoading ? (
+          {sessionsError ? (
+            <div className="p-12 text-center">
+              <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Failed to load conversations</p>
+            </div>
+          ) : sessionsLoading ? (
             <div className="flex justify-center p-12">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
           ) : sessions.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
-              No conversations yet
+              <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No conversations yet</p>
             </div>
           ) : (
             sessions.map((session: any) => (
@@ -239,13 +315,18 @@ function ChatContent() {
                         <p className="text-xs text-muted-foreground truncate">{session.customerEmail}</p>
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {session.updatedAt?.toDate ? formatDistanceToNow(session.updatedAt.toDate(), { addSuffix: true }) : 'New'}
+                    <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                      {formatSessionTime(session.updatedAt)}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                     {session.lastMessage || 'New conversation'}
                   </p>
+                  {session.status === 'active' && (
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                      Active
+                    </span>
+                  )}
                 </div>
               </button>
             ))
@@ -259,7 +340,12 @@ function ChatContent() {
           {/* Header */}
           <div className="px-6 py-4 border-b flex items-center justify-between bg-white">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSelectedSessionId(null)}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="lg:hidden" 
+                onClick={handleBackToList}
+              >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <Avatar className="h-10 w-10">
@@ -270,7 +356,12 @@ function ChatContent() {
                 {activeSession?.customerEmail && (
                   <p className="text-xs text-muted-foreground">{activeSession.customerEmail}</p>
                 )}
-                <p className="text-xs text-muted-foreground">Live Chat</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Live Chat</span>
+                  {activeSession?.status === 'active' && (
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -279,17 +370,24 @@ function ChatContent() {
               variant="outline" 
               size="sm" 
               className="text-green-600 border-green-200 hover:bg-green-50"
+              disabled={activeSession?.status === 'resolved'}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              Resolve
+              {activeSession?.status === 'resolved' ? 'Resolved' : 'Resolve'}
             </Button>
           </div>
 
           {/* Messages Area */}
           <ScrollArea className="flex-1 p-6 bg-zinc-50">
-            {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground py-12">
-                No messages yet. Waiting for customer to start chatting...
+            {messagesResult?.isLoading ? (
+              <div className="flex items-center justify-center h-full py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
+                <MessageSquare className="w-12 h-12 mb-3 opacity-50" />
+                <p>No messages yet</p>
+                <p className="text-sm">Waiting for customer to start chatting...</p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -302,13 +400,13 @@ function ChatContent() {
                     >
                       <div
                         className={cn(
-                          "max-w-[75%] px-4 py-3 rounded-3xl text-sm",
+                          "max-w-[75%] px-4 py-3 rounded-3xl text-sm shadow-sm",
                           isAgent 
                             ? "bg-primary text-white rounded-tr-none" 
                             : "bg-white border rounded-tl-none"
                         )}
                       >
-                        {msg.content}
+                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                       </div>
                     </div>
                   )
@@ -325,22 +423,35 @@ function ChatContent() {
                 placeholder="Type your reply..."
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSendMessage()
+                  }
+                }}
                 className="flex-1 rounded-2xl"
+                disabled={activeSession?.status === 'resolved'}
               />
               <Button 
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() || activeSession?.status === 'resolved'}
                 className="bg-primary hover:bg-primary/90"
               >
                 <Send className="w-5 h-5" />
               </Button>
             </div>
+            {activeSession?.status === 'resolved' && (
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                This conversation has been resolved
+              </p>
+            )}
           </div>
         </Card>
       ) : (
         <Card className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-white border-none shadow-sm rounded-2xl">
-          <MessageSquare className="w-16 h-16 text-muted-foreground mb-6" />
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+            <MessageSquare className="w-10 h-10 text-primary" />
+          </div>
           <h2 className="text-2xl font-semibold mb-2">No conversation selected</h2>
           <p className="text-muted-foreground max-w-md">
             Select a conversation from the list to start replying to customers.
@@ -351,14 +462,18 @@ function ChatContent() {
   )
 }
 
+// Main export with Suspense boundary
 export default function ChatPage() {
   return (
     <Suspense fallback={
       <div className="h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading chat interface...</p>
+        </div>
       </div>
     }>
-      <ChatContent />
+      <ChatPageContent />
     </Suspense>
   )
 }
