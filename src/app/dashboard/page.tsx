@@ -12,7 +12,7 @@ import {
   Settings
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import Link from 'next/link'
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, limit, orderBy } from 'firebase/firestore'
@@ -159,7 +159,7 @@ export default function DashboardOverview() {
           </CardHeader>
           <CardContent className="space-y-4 relative">
             <Button 
-              className="w-full bg-white text-primary hover:bg-white/80 justify-start h-11 sm:h-12 rounded-xl shadow-lg text-sm border-none"
+              className="w-full bg-white text-primary hover:bg-white/90 justify-start h-11 sm:h-12 rounded-xl shadow-lg text-sm border-none"
               asChild
             >
               <Link href="/dashboard/team">
