@@ -21,7 +21,7 @@ interface ChatPreviewProps {
   onSendMessage?: (message: string, customerInfo?: { name: string; email: string }) => void
   isTyping?: boolean
   showBranding?: boolean
-  sessionId?: string | null   // NEW: pass sessionId from parent
+  sessionId?: string | null
 }
 
 export function ChatPreview({
@@ -41,7 +41,7 @@ export function ChatPreview({
   const [hasCompletedLeadForm, setHasCompletedLeadForm] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Load from localStorage on mount
+  // Load lead form completion status from localStorage
   useEffect(() => {
     if (!sessionId) return
     const key = `leadFormCompleted_${sessionId}`
@@ -60,7 +60,7 @@ export function ChatPreview({
 
     let customerInfo: { name: string; email: string } | undefined = undefined
 
-    // Only show lead form if not completed yet
+    // Require name and email only for the first message
     if (!hasCompletedLeadForm) {
       if (!localName.trim() || !localEmail.trim()) {
         alert("Please enter your name and email before sending your first message.")
@@ -144,7 +144,7 @@ export function ChatPreview({
         )}
       </div>
 
-      {/* Lead Capture Form - Only shows if not completed yet */}
+      {/* Lead Capture Form */}
       {showLeadForm && (
         <div className="p-4 border-t bg-white space-y-3">
           <p className="text-sm text-center text-muted-foreground font-medium">Please tell us who you are</p>
