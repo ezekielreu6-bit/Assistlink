@@ -18,12 +18,15 @@ import { formatDistanceToNow } from 'date-fns'
 import { useToast } from '@/hooks/use-toast'
 
 export default function ChatClient() {
+  // --- SAFETY GATE ---
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => { setIsMounted(true) }, [])
+
   const { user, loading: userLoading } = useUser()
   const db = useFirestore()
   const { toast } = useToast()
   const searchParams = useSearchParams()
 
-  const [mounted, setMounted] = useState(false)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [orgId, setOrgId] = useState<string | null>(null)
@@ -31,43 +34,45 @@ export default function ChatClient() {
   const [isSending, setIsSending] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  // 1. Prevent Hydration Errors (Dates/SearchParams)
+  // Sync session ID from URL
   useEffect(() => {
-    setMounted(true)
-    const session = searchParams?.get('session')
-    if (session) setSelectedSessionId(session)
-  }, [searchParams])
+    if (isMounted) {
+      const session = searchParams?.get('session')
+      if (session) setSelectedSessionId(session)
+    }
+  }, [isMounted, searchParams])
 
-  // 2. Fetch Organization ID
+  // Get Organization Context
   useEffect(() => {
-    if (!mounted || !user?.email || !db) {
+    if (!isMounted || !user?.email || !db) {
       if (!userLoading) setIsLoadingOrg(false)
       return
     }
 
-    async function getOrgContext() {
+    async function fetchOrg() {
       try {
-        const userEmail = user!.email!.toLowerCase().trim()
-        const userDocRef = doc(db!, 'users', userEmail)
+        const email = user?.email?.toLowerCase().trim()
+        if (!email) return
+        
+        const userDocRef = doc(db!, 'users', email)
         const userSnap = await getDoc(userDocRef)
 
-        let currentOrgId = userEmail.replace(/\./g, '_')
+        let id = email.replace(/\./g, '_')
         if (userSnap.exists() && userSnap.data()?.organizationId) {
-          currentOrgId = userSnap.data().organizationId
+          id = userSnap.data().organizationId
         }
-        setOrgId(currentOrgId)
-      } catch (error) {
-        console.error("Org Context Error:", error)
+        setOrgId(id)
+      } catch (e) {
+        console.error("Org fetch error", e)
       } finally {
         setIsLoadingOrg(false)
       }
     }
-    getOrgContext()
-  }, [user, userLoading, db, mounted])
+    fetchOrg()
+  }, [user, userLoading, db, isMounted])
 
-  // 3. Firestore Queries
+  // Queries
   const sessionsQuery = useMemoFirebase(() => {
     if (!db || !orgId) return null
     return query(
@@ -97,83 +102,79 @@ export default function ChatClient() {
 
   const { data: activeSession } = useDoc(activeSessionRef) || {}
 
-  // 4. Formatting helper (Safe for Hydration)
-  const formatTime = (timestamp: any) => {
-    if (!mounted || !timestamp) return ''
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
-      return formatDistanceToNow(date, { addSuffix: true })
-    } catch { return 'Recently' }
-  }
-
-  // 5. Actions
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !selectedSessionId || !orgId || !db || !user?.email) return
-    const content = inputValue.trim()
+    const msg = inputValue.trim()
     setInputValue('')
     setIsSending(true)
     try {
       await addDoc(collection(db, 'organizations', orgId, 'chatSessions', selectedSessionId, 'chatMessages'), {
-        content, senderType: 'agent', senderEmail: user.email, createdAt: serverTimestamp(),
+        content: msg, senderType: 'agent', senderEmail: user.email, createdAt: serverTimestamp(),
       })
       await updateDoc(doc(db, 'organizations', orgId, 'chatSessions', selectedSessionId), {
-        lastMessage: content, updatedAt: serverTimestamp(), lastReplyBy: 'agent'
+        lastMessage: msg, updatedAt: serverTimestamp(), lastReplyBy: 'agent'
       })
     } catch (e) {
-      toast({ title: "Error", description: "Failed to send", variant: "destructive" })
-      setInputValue(content)
-    } finally { setIsSending(false) }
+      toast({ title: "Error", description: "Failed to send" })
+      setInputValue(msg)
+    } finally {
+      setIsSending(false)
+    }
   }
 
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [rawMessages])
 
-  // LOADING STATES
-  if (!mounted || userLoading || isLoadingOrg) {
-    return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>
+  // IMPORTANT: Do not render anything until mounted to prevent Client Exception
+  if (!isMounted || userLoading || isLoadingOrg) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   if (!user) {
-    return <div className="h-screen flex items-center justify-center"><Button onClick={() => window.location.href='/login'}>Sign In</Button></div>
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <Button onClick={() => window.location.href = '/login'}>Please Sign In</Button>
+      </div>
+    )
   }
 
   return (
     <div className="h-[calc(100vh-4rem)] p-4 flex flex-col lg:flex-row gap-4 bg-gray-50 overflow-hidden">
       {/* Sidebar */}
       <Card className={cn("w-full lg:w-80 border flex flex-col bg-white shrink-0", selectedSessionId && "hidden lg:flex")}>
-        <div className="p-4 border-b font-bold">Active Conversations</div>
+        <div className="p-4 border-b font-bold">Conversations</div>
         <ScrollArea className="flex-1">
-          {sessions.length === 0 ? <div className="p-8 text-center text-gray-400">No active chats</div> : (
-            sessions.map((s: any) => (
-              <button 
-                key={s.id} 
-                onClick={() => setSelectedSessionId(s.id)}
-                className={cn("w-full p-4 border-b text-left hover:bg-gray-50 transition-colors", selectedSessionId === s.id && "bg-primary/5 border-l-4 border-primary")}
-              >
-                <div className="font-semibold truncate">{s.customerName || 'Anonymous'}</div>
-                <div className="text-xs text-gray-500">{formatTime(s.updatedAt)}</div>
-                <div className="text-sm truncate text-gray-600 mt-1">{s.lastMessage}</div>
-              </button>
-            ))
-          )}
+          {sessions.map((s: any) => (
+            <button 
+              key={s.id} 
+              onClick={() => setSelectedSessionId(s.id)}
+              className={cn("w-full p-4 border-b text-left hover:bg-gray-50", selectedSessionId === s.id && "bg-blue-50")}
+            >
+              <div className="font-semibold truncate">{s.customerName || 'Anonymous'}</div>
+              <div className="text-xs text-gray-500 truncate">{s.lastMessage}</div>
+            </button>
+          ))}
         </ScrollArea>
       </Card>
 
-      {/* Main Area */}
+      {/* Chat Area */}
       {selectedSessionId ? (
         <Card className="flex-1 flex flex-col bg-white overflow-hidden border">
           <div className="p-4 border-b flex items-center justify-between">
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSelectedSessionId(null)}><ArrowLeft /></Button>
-            <div className="font-bold">{activeSession?.customerName || 'Customer'}</div>
-            <Button variant="outline" size="sm" className="text-green-600">Resolve</Button>
+            <div className="font-bold">{activeSession?.customerName || 'Chat'}</div>
+            <div />
           </div>
           
           <ScrollArea className="flex-1 p-4 bg-gray-50/50">
             {rawMessages.map((m: any) => (
               <div key={m.id} className={cn("mb-4 flex", m.senderType === 'agent' ? "justify-end" : "justify-start")}>
-                <div className={cn("max-w-[80%] p-3 rounded-2xl text-sm", m.senderType === 'agent' ? "bg-primary text-white rounded-tr-none" : "bg-white border shadow-sm rounded-tl-none")}>
+                <div className={cn("max-w-[80%] p-3 rounded-xl text-sm", m.senderType === 'agent' ? "bg-primary text-white" : "bg-white border")}>
                   {m.content}
                 </div>
               </div>
@@ -186,18 +187,14 @@ export default function ChatClient() {
               value={inputValue} 
               onChange={e => setInputValue(e.target.value)} 
               onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Type your message..."
-              disabled={isSending}
+              placeholder="Message..."
             />
-            <Button onClick={handleSendMessage} disabled={isSending || !inputValue.trim()}>
-              {isSending ? <Loader2 className="animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
+            <Button onClick={handleSendMessage} disabled={isSending}><Send className="h-4 w-4" /></Button>
           </div>
         </Card>
       ) : (
-        <Card className="flex-1 flex flex-col items-center justify-center bg-white text-gray-400">
-          <MessageSquare className="w-12 h-12 mb-4 opacity-20" />
-          <p>Select a chat to begin</p>
+        <Card className="flex-1 flex items-center justify-center text-gray-400">
+          Select a chat to respond
         </Card>
       )}
     </div>
