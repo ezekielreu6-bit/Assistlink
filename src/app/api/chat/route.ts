@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     const isPro = config.plan === 'pro' || config.plan === 'premium';
 
-    // 2. Fetch conversation history
+    // 2. Fetch conversation history for AI
     const messagesRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages');
     const historyQuery = query(messagesRef, orderBy('createdAt', 'desc'), limit(12));
     const snapshot = await getDocs(historyQuery);
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       }))
       .reverse();
 
-    // 3. Get smart suggestions for the agent dashboard
+    // 3. Get smart suggestions for agent dashboard
     let suggestions: string[] = [];
     try {
       const result = await agentSmartReplySuggestions({
@@ -91,7 +91,6 @@ export async function POST(req: Request) {
             role: 'assistant',
             content: autoReplyContent,
             createdAt: serverTimestamp(),
-            timestamp: serverTimestamp(), // backward compatibility
             isAutoReply: true,
             generatedBy: 'ai',
           });
@@ -106,12 +105,11 @@ export async function POST(req: Request) {
       role: 'user',
       content: trimmedMessage,
       createdAt: serverTimestamp(),
-      timestamp: serverTimestamp(), // backward compatibility
       customerName: customerName || null,
       customerEmail: customerEmail || null,
     });
 
-    // 6. Update (or create) session metadata + store customer info
+    // 6. Update session metadata (create if not exists)
     const sessionRef = doc(db, 'organizations', orgId, 'chatSessions', sessionId);
     await setDoc(sessionRef, {
       lastMessage: trimmedMessage,
