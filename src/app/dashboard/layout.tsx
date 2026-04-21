@@ -119,7 +119,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
     )
   }
-
+<!-- AssistLink Chat Widget -->
+<script src="https://assistlink-bit.vercel.app/api/widget?id=ezekielojochenemi28@gmail_com"></script>
+<script>
+  AssistLink.init({
+    orgId: "ezekielojochenemi28@gmail_com",
+    primaryColor: "#3333CC",
+    accentColor: "#1FBAF5"
+  });
+</script>
   return (
     <div className="flex min-h-screen w-full bg-background overflow-hidden">
       <Sidebar className="border-r border-border">
