@@ -41,7 +41,7 @@ export function ChatPreview({
   const [hasCompletedLeadForm, setHasCompletedLeadForm] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Load lead form completion status from localStorage
+  // Load lead form status from localStorage
   useEffect(() => {
     if (!sessionId) return
     const key = `leadFormCompleted_${sessionId}`
@@ -60,7 +60,6 @@ export function ChatPreview({
 
     let customerInfo: { name: string; email: string } | undefined = undefined
 
-    // Require name and email only for the first message
     if (!hasCompletedLeadForm) {
       if (!localName.trim() || !localEmail.trim()) {
         alert("Please enter your name and email before sending your first message.")
@@ -68,7 +67,7 @@ export function ChatPreview({
       }
       customerInfo = { name: localName.trim(), email: localEmail.trim() }
 
-      // Mark as completed and save to localStorage
+      // Mark as completed
       setHasCompletedLeadForm(true)
       if (sessionId) {
         localStorage.setItem(`leadFormCompleted_${sessionId}`, 'true')
