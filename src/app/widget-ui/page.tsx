@@ -4,7 +4,17 @@ import { useSearchParams } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
 import { ChatPreview } from '@/components/chat-preview'
 import { db } from '@/firebase'
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, getDoc } from 'firebase/firestore'
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp, 
+  doc, 
+  getDoc,
+  setDoc 
+} from 'firebase/firestore'
 
 function WidgetContent() {
   const searchParams = useSearchParams()
@@ -53,22 +63,37 @@ function WidgetContent() {
     fetchWidgetSettings()
   }, [isMounted, orgId])
 
-  // Create unique session per visitor + per website
+  // Create or get unique session in Firebase
   useEffect(() => {
     if (!isMounted || !orgId) return
 
-    const sessionKey = `al_session_\( {orgId}_ \){domain}`
-    let currentSessionId = localStorage.getItem(sessionKey)
+    async function createSession() {
+      const sessionKey = `al_session_\( {orgId}_ \){domain}`
+      let currentSessionId = localStorage.getItem(sessionKey)
 
-    if (!currentSessionId) {
-      currentSessionId = `sess_\( {Date.now().toString(36)}_ \){Math.random().toString(36).substring(2)}`
-      localStorage.setItem(sessionKey, currentSessionId)
+      if (!currentSessionId) {
+        // Create new session document in Firebase
+        const sessionsRef = collection(db, 'organizations', orgId, 'chatSessions')
+        const newSession = await addDoc(sessionsRef, {
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          status: 'active',
+          domain: domain,
+          customerName: null,
+          customerEmail: null,
+        })
+
+        currentSessionId = newSession.id
+        localStorage.setItem(sessionKey, currentSessionId)
+      }
+
+      setSessionId(currentSessionId)
     }
 
-    setSessionId(currentSessionId)
+    createSession()
   }, [isMounted, orgId, domain])
 
-  // Real-time listener for THIS visitor's session only
+  // Real-time listener for this session
   useEffect(() => {
     if (!isMounted || !sessionId || !orgId || !db) return
 
@@ -87,7 +112,6 @@ function WidgetContent() {
     return () => unsubscribe()
   }, [isMounted, sessionId, orgId, settings.welcomeMessage])
 
-  // Handle sending message (with optional customer info from lead form)
   const handleSendMessage = async (content: string, customerInfo?: { name: string; email: string }) => {
     if (!content.trim() || !sessionId || !db) return
 
