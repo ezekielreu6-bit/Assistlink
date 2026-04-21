@@ -12,7 +12,6 @@ function WidgetContent() {
   const [messages, setMessages] = useState<{role: string, content: string}[]>([])
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [customerInfo, setCustomerInfo] = useState<{ name: string; email: string } | null>(null)
 
   const [settings, setSettings] = useState({
     companyName: 'Support',
@@ -21,7 +20,8 @@ function WidgetContent() {
   })
 
   const orgId = searchParams?.get('id') || 'default'
-  const domain = searchParams?.get('domain') || (typeof window !== 'undefined' ? window.location.hostname.replace(/[^a-zA-Z0-9]/g, '_') : 'default')
+  const domain = searchParams?.get('domain') || 
+    (typeof window !== 'undefined' ? window.location.hostname.replace(/[^a-zA-Z0-9]/g, '_') : 'default')
 
   const primaryColor = `#${searchParams?.get('primary') || '3333CC'}`
   const accentColor = `#${searchParams?.get('accent') || '1FBAF5'}`
@@ -53,20 +53,22 @@ function WidgetContent() {
     fetchWidgetSettings()
   }, [isMounted, orgId])
 
-  // Session Persistence
+  // Create unique session per visitor + per website
   useEffect(() => {
     if (!isMounted || !orgId) return
 
     const sessionKey = `al_session_\( {orgId}_ \){domain}`
-    let sId = localStorage.getItem(sessionKey)
-    if (!sId) {
-      sId = `sess_\( {Date.now().toString(36)} \){Math.random().toString(36).substring(2)}`
-      localStorage.setItem(sessionKey, sId)
+    let currentSessionId = localStorage.getItem(sessionKey)
+
+    if (!currentSessionId) {
+      currentSessionId = `sess_\( {Date.now().toString(36)}_ \){Math.random().toString(36).substring(2)}`
+      localStorage.setItem(sessionKey, currentSessionId)
     }
-    setSessionId(sId)
+
+    setSessionId(currentSessionId)
   }, [isMounted, orgId, domain])
 
-  // Listen for Messages
+  // Real-time listener for THIS visitor's session only
   useEffect(() => {
     if (!isMounted || !sessionId || !orgId || !db) return
 
@@ -85,7 +87,8 @@ function WidgetContent() {
     return () => unsubscribe()
   }, [isMounted, sessionId, orgId, settings.welcomeMessage])
 
-  const handleSendMessage = async (content: string, info?: { name: string; email: string }) => {
+  // Handle sending message (with optional customer info from lead form)
+  const handleSendMessage = async (content: string, customerInfo?: { name: string; email: string }) => {
     if (!content.trim() || !sessionId || !db) return
 
     setLoading(true)
@@ -93,19 +96,13 @@ function WidgetContent() {
     try {
       const colRef = collection(db, 'organizations', orgId, 'chatSessions', sessionId, 'chatMessages')
 
-      // Save customer info on first message only
-      const finalInfo = info || customerInfo
-
       await addDoc(colRef, {
         role: 'user',
         content: content.trim(),
         createdAt: serverTimestamp(),
-        customerName: finalInfo?.name || null,
-        customerEmail: finalInfo?.email || null,
+        customerName: customerInfo?.name || null,
+        customerEmail: customerInfo?.email || null,
       })
-
-      // Store info for future messages in this session
-      if (info) setCustomerInfo(info)
 
       await fetch('/api/chat', {
         method: 'POST',
@@ -114,8 +111,8 @@ function WidgetContent() {
           message: content.trim(), 
           orgId, 
           sessionId,
-          customerName: finalInfo?.name,
-          customerEmail: finalInfo?.email
+          customerName: customerInfo?.name,
+          customerEmail: customerInfo?.email
         })
       })
     } catch (error) {
@@ -125,7 +122,9 @@ function WidgetContent() {
     }
   }
 
-  if (!isMounted) return null
+  if (!isMounted || !sessionId) {
+    return <div className="w-full h-screen bg-transparent" />
+  }
 
   return (
     <div className="w-full h-screen bg-transparent flex items-end justify-end p-6 md:p-8">
